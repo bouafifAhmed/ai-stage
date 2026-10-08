@@ -61,3 +61,24 @@ class RecommandationResponseDTO(BaseModel):
 class HealthCheckResponse(BaseModel):
     """Simple health check response."""
     status: str = "ok"
+
+
+class AdequationRequestDTO(BaseModel):
+    """
+    Requête d'analyse d'adéquation étudiant / offre unique.
+    """
+    etudiant: EtudiantProfilDTO
+    offre: OffreEntrepriseDTO
+
+
+class AdequationResponseDTO(BaseModel):
+    """
+    Résultat d'analyse d'adéquation et écart de compétences (Skill Gap).
+    """
+    offreId: int
+    score: float
+    scorePourcentage: int
+    competencesAcquises: List[str]
+    competencesManquantes: List[str]
+    conseils: List[str]
+

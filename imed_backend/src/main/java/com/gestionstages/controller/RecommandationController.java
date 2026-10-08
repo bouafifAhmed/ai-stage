@@ -1,5 +1,6 @@
 package com.gestionstages.controller;
 
+import com.gestionstages.dto.recommandation.AdequationResponseDTO;
 import com.gestionstages.dto.recommandation.RecommandationItemDTO;
 import com.gestionstages.model.Utilisateur;
 import com.gestionstages.repository.UserRepository;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -128,6 +130,43 @@ public class RecommandationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } catch (Exception e) {
             log.error("Erreur lors de la récupération des recommandations", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Analyse l'adéquation et l'écart de compétences entre l'étudiant connecté et une offre précise.
+     */
+    @GetMapping("/adequation/{offreId}")
+    @PreAuthorize("hasRole('ETUDIANT')")
+    public ResponseEntity<AdequationResponseDTO> analyserAdequation(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long offreId
+    ) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String email = jwtTokenProvider.extractUsername(token);
+
+            if (email == null || email.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            Optional<Utilisateur> optUser = userRepository.findByEmail(email);
+            if (optUser.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            Utilisateur utilisateur = optUser.get();
+            AdequationResponseDTO adequation = recommandationClientService
+                    .analyserAdequation(utilisateur.getId(), offreId);
+
+            return ResponseEntity.ok(adequation);
+
+        } catch (RecommandationClientService.ResourceNotFoundException e) {
+            log.error("Ressource non trouvée pour analyse d'adéquation : {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            log.error("Erreur lors de l'analyse d'adéquation", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

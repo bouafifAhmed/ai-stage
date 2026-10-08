@@ -13,6 +13,19 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.gestionstages.model.Entreprise;
+import com.gestionstages.model.OffreStage;
+import com.gestionstages.model.Role;
+import com.gestionstages.model.StatutValidation;
+import com.gestionstages.model.Utilisateur;
+import com.gestionstages.repository.EntrepriseRepository;
+import com.gestionstages.repository.OffreStageRepository;
+import com.gestionstages.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -23,20 +36,34 @@ public class DataSeeder implements CommandLineRunner {
     private final QcmRepository qcmRepository;
     private final QuestionRepository questionRepository;
     private final OptionReponseRepository optionReponseRepository;
+    private final UserRepository userRepository;
+    private final EntrepriseRepository entrepriseRepository;
+    private final OffreStageRepository offreStageRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public DataSeeder(
             QcmRepository qcmRepository,
             QuestionRepository questionRepository,
-            OptionReponseRepository optionReponseRepository
+            OptionReponseRepository optionReponseRepository,
+            UserRepository userRepository,
+            EntrepriseRepository entrepriseRepository,
+            OffreStageRepository offreStageRepository,
+            PasswordEncoder passwordEncoder
     ) {
         this.qcmRepository = qcmRepository;
         this.questionRepository = questionRepository;
         this.optionReponseRepository = optionReponseRepository;
+        this.userRepository = userRepository;
+        this.entrepriseRepository = entrepriseRepository;
+        this.offreStageRepository = offreStageRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
+        seederComptesEtOffres();
+
         if (qcmRepository.count() > 0) {
             LOGGER.info("Seeding QCM ignoré : {} QCM déjà présent(s) en base", qcmRepository.count());
             return;
@@ -51,6 +78,121 @@ public class DataSeeder implements CommandLineRunner {
                 qcm.getTitre(),
                 nombreQuestions
         );
+    }
+
+    private void seederComptesEtOffres() {
+        if (userRepository.existsByEmail("etudiant@demo.com")) {
+            LOGGER.info("Seeding étudiants et offres ignoré : le compte étudiant existe déjà.");
+            return;
+        }
+
+        LOGGER.info("Initialisation des comptes de démonstration et des offres de stage...");
+
+        // 1. Admin
+        if (!userRepository.existsByEmail("admin@demo.com")) {
+            Utilisateur admin = new Utilisateur();
+            admin.setNom("System");
+            admin.setPrenom("Admin");
+            admin.setEmail("admin@demo.com");
+            admin.setMotDePasse(passwordEncoder.encode("Password123!"));
+            admin.setRole(Role.SUPER_ADMIN);
+            admin.setActif(true);
+            userRepository.save(admin);
+        }
+
+        // 2. Entreprise
+        Entreprise techCorp = new Entreprise();
+        techCorp.setNom("TechCorp Innovations");
+        techCorp.setEmailContact("recruteur@techcorp.com");
+        techCorp.setStatutValidation(StatutValidation.VALIDEE);
+        techCorp.setSiteWeb("https://techcorp-demo.com");
+        techCorp.setAdresse("Paris, France");
+        techCorp.setSecteurActivite("Technologies & Software");
+        techCorp = entrepriseRepository.save(techCorp);
+
+        Utilisateur recruteur = new Utilisateur();
+        recruteur.setNom("TechCorp");
+        recruteur.setPrenom("Recruteur");
+        recruteur.setEmail("recruteur@techcorp.com");
+        recruteur.setMotDePasse(passwordEncoder.encode("Password123!"));
+        recruteur.setRole(Role.ENTREPRISE);
+        recruteur.setEntreprise(techCorp);
+        recruteur.setActif(true);
+        userRepository.save(recruteur);
+
+        // 3. Etudiant
+        Utilisateur etudiant = new Utilisateur();
+        etudiant.setNom("Dupont");
+        etudiant.setPrenom("Alexandre");
+        etudiant.setEmail("etudiant@demo.com");
+        etudiant.setMotDePasse(passwordEncoder.encode("Password123!"));
+        etudiant.setRole(Role.ETUDIANT);
+        etudiant.setFiliere("Génie Logiciel & Cloud");
+        etudiant.setNiveauEtudes("Bac+5");
+        etudiant.setTelephone("0612345678");
+        etudiant.setCompetences(new ArrayList<>(List.of("Java", "Spring Boot", "Angular", "TypeScript", "Docker", "Git")));
+        etudiant.setActif(true);
+        userRepository.save(etudiant);
+
+        // 4. Offres de stage
+        OffreStage offre1 = new OffreStage();
+        offre1.setTitre("Stage Développeur Fullstack Java / Angular");
+        offre1.setDescription("Rejoignez notre équipe agile pour concevoir et développer des fonctionnalités complètes sur nos plateformes web et cloud microservices.");
+        offre1.setDomaine("Génie Logiciel");
+        offre1.setLocalisation("Paris / Télétravail partiel");
+        offre1.setMode(OffreStage.ModeTravail.HYBRIDE);
+        offre1.setTypeStage("PFE / Fin d'études");
+        offre1.setDureeMois(6);
+        offre1.setDateDebut(LocalDate.now().plusWeeks(2));
+        offre1.setDateFin(LocalDate.now().plusMonths(6));
+        offre1.setDateLimite(LocalDate.now().plusMonths(2));
+        offre1.setCompetences(new ArrayList<>(List.of("Java", "Spring Boot", "Angular", "PostgreSQL", "Docker")));
+        offre1.setNiveauRequis("Bac+5");
+        offre1.setNombrePlaces(3);
+        offre1.setRemuneration(BigDecimal.valueOf(1400.00));
+        offre1.setStatut(OffreStage.StatutOffre.PUBLIEE);
+        offre1.setEntreprise(techCorp);
+        offreStageRepository.save(offre1);
+
+        OffreStage offre2 = new OffreStage();
+        offre2.setTitre("Stage Ingénieur IA & NLP / Data Science");
+        offre2.setDescription("Intégrez notre lab IA pour développer des modèles de traitement automatique du langage naturel, de recommandation et de machine learning avec FastAPI.");
+        offre2.setDomaine("Intelligence Artificielle");
+        offre2.setLocalisation("Lyon / Distanciel");
+        offre2.setMode(OffreStage.ModeTravail.DISTANCIEL);
+        offre2.setTypeStage("Stage R&D");
+        offre2.setDureeMois(6);
+        offre2.setDateDebut(LocalDate.now().plusWeeks(3));
+        offre2.setDateFin(LocalDate.now().plusMonths(6));
+        offre2.setDateLimite(LocalDate.now().plusMonths(2));
+        offre2.setCompetences(new ArrayList<>(List.of("Python", "FastAPI", "Machine Learning", "NLP", "Scikit-Learn")));
+        offre2.setNiveauRequis("Bac+5");
+        offre2.setNombrePlaces(2);
+        offre2.setRemuneration(BigDecimal.valueOf(1500.00));
+        offre2.setStatut(OffreStage.StatutOffre.PUBLIEE);
+        offre2.setEntreprise(techCorp);
+        offreStageRepository.save(offre2);
+
+        OffreStage offre3 = new OffreStage();
+        offre3.setTitre("Stage Frontend UI/UX React & Next.js");
+        offre3.setDescription("Développement d'interfaces modernes, interactives et performantes pour notre produit SaaS.");
+        offre3.setDomaine("Web Frontend");
+        offre3.setLocalisation("Nantes");
+        offre3.setMode(OffreStage.ModeTravail.PRESENTIEL);
+        offre3.setTypeStage("Stage Découverte");
+        offre3.setDureeMois(4);
+        offre3.setDateDebut(LocalDate.now().plusWeeks(4));
+        offre3.setDateFin(LocalDate.now().plusMonths(5));
+        offre3.setDateLimite(LocalDate.now().plusMonths(2));
+        offre3.setCompetences(new ArrayList<>(List.of("React", "Next.js", "TailwindCSS", "TypeScript")));
+        offre3.setNiveauRequis("Bac+3");
+        offre3.setNombrePlaces(1);
+        offre3.setRemuneration(BigDecimal.valueOf(1100.00));
+        offre3.setStatut(OffreStage.StatutOffre.PUBLIEE);
+        offre3.setEntreprise(techCorp);
+        offreStageRepository.save(offre3);
+
+        LOGGER.info("Seeding terminé avec succès : 3 comptes de test et 3 offres de stage créées.");
     }
 
     private Qcm creerQcmEntretienSavoirEtre() {

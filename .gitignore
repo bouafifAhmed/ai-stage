@@ -1,0 +1,10 @@
+# Root .gitignore
+**/node_modules/
+**/dist/
+**/.angular/
+**/target/
+**/venv/
+**/__pycache__/
+*.pyc
+.idea/
+.vscode/

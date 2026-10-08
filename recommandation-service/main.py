@@ -19,9 +19,11 @@ import logging
 from models import (
     RecommandationRequestDTO,
     RecommandationResponseDTO,
-    HealthCheckResponse
+    HealthCheckResponse,
+    AdequationRequestDTO,
+    AdequationResponseDTO
 )
-from recommandation import calculer_recommandations
+from recommandation import calculer_recommandations, analyser_adequation
 
 
 # Configuration du logging
@@ -165,6 +167,28 @@ async def recommander(request: RecommandationRequestDTO):
         raise HTTPException(
             status_code=500,
             detail=f"Erreur interne lors du calcul des recommandations : {str(e)}"
+        )
+
+
+@app.post("/analyser-adequation", response_model=AdequationResponseDTO)
+async def analyser_adequation_endpoint(request: AdequationRequestDTO):
+    """
+    Endpoint d'analyse d'adéquation et d'écart de compétences (Skill Gap).
+    Calcule le taux de compatibilité, liste les compétences acquises/manquantes,
+    et fournit des conseils personnalisés pour une offre précise.
+    """
+    try:
+        logger.info(
+            f"Analyse d'adéquation demandée pour l'étudiant {request.etudiant.id} "
+            f"et l'offre {request.offre.id}"
+        )
+        resultat = analyser_adequation(request.etudiant, request.offre)
+        return resultat
+    except Exception as e:
+        logger.error(f"Erreur lors de l'analyse d'adéquation : {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur interne lors de l'analyse d'adéquation : {str(e)}"
         )
 
 

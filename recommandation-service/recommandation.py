@@ -14,7 +14,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
-from models import EtudiantProfilDTO, OffreEntrepriseDTO, RecommandationItemDTO
+from models import (
+    EtudiantProfilDTO,
+    OffreEntrepriseDTO,
+    RecommandationItemDTO,
+    AdequationResponseDTO
+)
 
 
 def construire_texte_etudiant(etudiant: EtudiantProfilDTO) -> str:
@@ -120,18 +125,29 @@ def calculer_recommandations(
         ]
     """
     
+    # Guard si aucune offre n'est fournie
+    if not offres:
+        return []
+
     # Étape 1 & 2 : Construire les textes
-    texte_etudiant = construire_texte_etudiant(etudiant)
-    textes_offres = [construire_texte_offre(offre) for offre in offres]
+    texte_etudiant = construire_texte_etudiant(etudiant).strip()
+    textes_offres = [construire_texte_offre(offre).strip() for offre in offres]
     
     # Étape 3 : Créer le corpus (étudiant en premier, puis toutes les offres)
     corpus = [texte_etudiant] + textes_offres
+
+    # Si tous les textes sont vides
+    if not any(bool(t) for t in corpus):
+        return [
+            RecommandationItemDTO(
+                offreId=offre.id,
+                nomEntreprise=offre.nomEntreprise,
+                score=0.0
+            )
+            for offre in offres[:top_n]
+        ]
     
     # Étape 4 : Appliquer TF-IDF
-    # - stop_words=None : garde tous les termes (pas de filtrage)
-    #   (on pourrait ajouter stop_words personnalisés en français si besoin)
-    # - max_features=None : aucune limite de features
-    # - lowercase=True : normalise la casse (par défaut)
     vectorizer = TfidfVectorizer(
         stop_words=None,
         lowercase=True,
@@ -139,7 +155,18 @@ def calculer_recommandations(
     )
     
     # Vectoriser le corpus : chaque texte devient un vecteur numérique
-    tfidf_matrix = vectorizer.fit_transform(corpus)
+    try:
+        tfidf_matrix = vectorizer.fit_transform(corpus)
+    except ValueError:
+        # En cas de vocabulaire vide ou problème d'analyse
+        return [
+            RecommandationItemDTO(
+                offreId=offre.id,
+                nomEntreprise=offre.nomEntreprise,
+                score=0.0
+            )
+            for offre in offres[:top_n]
+        ]
     
     # Étape 5 : Calculer la similarité cosinus
     # tfidf_matrix[0] = vecteur de l'étudiant
@@ -172,3 +199,73 @@ def calculer_recommandations(
         )
     
     return recommandations
+
+
+def analyser_adequation(
+    etudiant: EtudiantProfilDTO,
+    offre: OffreEntrepriseDTO
+) -> AdequationResponseDTO:
+    """
+    Analyse l'adéquation détaillée et l'écart de compétences (Skill Gap)
+    entre un profil étudiant et une offre spécifique.
+    """
+    etudiant_skills_norm = {s.strip().lower(): s.strip() for s in (etudiant.competences or [])}
+    offre_skills = offre.competencesRequises or []
+
+    competences_acquises = []
+    competences_manquantes = []
+
+    for req in offre_skills:
+        req_norm = req.strip().lower()
+        matched = False
+        for es_norm in etudiant_skills_norm.keys():
+            if req_norm == es_norm or req_norm in es_norm or es_norm in req_norm:
+                matched = True
+                break
+        if matched:
+            competences_acquises.append(req)
+        else:
+            competences_manquantes.append(req)
+
+    # Calcul de similarité textuelle
+    recs = calculer_recommandations(etudiant, [offre], top_n=1)
+    text_score = recs[0].score if recs else 0.0
+
+    # Score composite pondéré
+    if offre_skills:
+        skill_ratio = len(competences_acquises) / len(offre_skills)
+        combined_score = 0.65 * skill_ratio + 0.35 * text_score
+    else:
+        combined_score = text_score
+
+    combined_score = max(0.0, min(1.0, combined_score))
+    score_pct = int(round(combined_score * 100))
+
+    # Génération des conseils personnalisés
+    conseils = []
+    if score_pct >= 70:
+        conseils.append("Excellente adéquation ! Votre profil correspond étroitement aux attentes de l'entreprise.")
+    elif score_pct >= 40:
+        conseils.append("Bonne correspondance globale. Mettez en valeur vos projets pratiques dans votre candidature.")
+    else:
+        conseils.append("Cette offre présente des défis stimulants. Préparez-vous en découvrant les bases des compétences demandées.")
+
+    if competences_manquantes:
+        skills_str = ", ".join(competences_manquantes[:3])
+        conseils.append(f"Compétences à explorer ou valoriser en entretien : {skills_str}.")
+
+    secteur = (offre.secteurActivite or "").lower()
+    sujet = (offre.sujetOffre or "").lower()
+    filiere = (etudiant.filiere or "").lower()
+    if filiere and (filiere in secteur or filiere in sujet or secteur in filiere):
+        conseils.append(f"Votre filière ({etudiant.filiere}) s'aligne directement avec le domaine du stage.")
+
+    return AdequationResponseDTO(
+        offreId=offre.id,
+        score=round(combined_score, 2),
+        scorePourcentage=score_pct,
+        competencesAcquises=competences_acquises,
+        competencesManquantes=competences_manquantes,
+        conseils=conseils
+    )
+

@@ -2,28 +2,19 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { Recommandation, RecommandationAffichage } from '../models/recommandation.model';
+import { environment } from '../../environments/environment';
+import {
+  Recommandation,
+  RecommandationAffichage,
+  AdequationAnalyse
+} from '../models/recommandation.model';
 
-/**
- * Service Angular pour communiquer avec l'API de recommandations du backend.
- *
- * Responsabilités :
- * 1. Récupérer les recommandations via GET /api/recommandations
- * 2. Mapper les données JSON en objets TypeScript
- * 3. Gérer les erreurs gracieusement (dégradation gracieuse)
- * 4. Enrichir les données pour l'affichage (ex: calcul du pourcentage de pertinence)
- *
- * Architecture :
- * - Chaque appel contacte le backend Spring Boot (pas le microservice Python directement)
- * - Le backend gère la logique de recommandation via le microservice Python
- * - Le service Angular reste simple et résiliant
- */
 @Injectable({
   providedIn: 'root'
 })
 export class RecommandationService {
 
-  private apiUrl = '/api/recommandations';
+  private apiUrl = `${environment.apiUrl}/recommandations`;
 
   constructor(private http: HttpClient) { }
 
@@ -97,6 +88,18 @@ export class RecommandationService {
   healthCheck(): Observable<boolean> {
     return this.http.get<boolean>(`${this.apiUrl}/health`).pipe(
       catchError(() => of(false))
+    );
+  }
+
+  /**
+   * Analyse détaillée d'adéquation et d'écart de compétences (Skill Gap) pour une offre.
+   */
+  obtenirAdequation(offreId: number): Observable<AdequationAnalyse | null> {
+    return this.http.get<AdequationAnalyse>(`${this.apiUrl}/adequation/${offreId}`).pipe(
+      catchError((error) => {
+        console.warn('Erreur lors de la récupération de l\'analyse d\'adéquation', error);
+        return of(null);
+      })
     );
   }
 }

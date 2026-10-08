@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -178,9 +179,20 @@ public class StageRapportPdfService {
         content.beginText();
         content.setFont(font, size);
         content.newLineAtOffset(x, y);
-        content.showText(truncate(text, 95));
+        content.showText(truncate(normalizeText(text), 95));
         content.endText();
         return y - LINE;
+    }
+
+    /**
+     * Strips accents and non-ASCII chars so PDType1Font (WinAnsiEncoding)
+     * can render the text without throwing IllegalArgumentException.
+     * e.g. "Étudiant" → "Etudiant", "Synthèse" → "Synthese"
+     */
+    private String normalizeText(String text) {
+        if (text == null) return "";
+        String decomposed = Normalizer.normalize(text, Normalizer.Form.NFD);
+        return decomposed.replaceAll("[^\\x20-\\x7E]", "");
     }
 
     private String truncate(String text, int max) {

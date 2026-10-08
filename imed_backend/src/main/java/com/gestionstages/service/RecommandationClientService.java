@@ -32,34 +32,45 @@ import java.util.stream.Collectors;
  * - À chaque appel, on envoie l'utilisateur ET la liste complète des offres actuelles
  * - Le service Python calcule et retourne immédiatement les recommandations
  */
+import com.gestionstages.model.OffreStage;
+import com.gestionstages.repository.OffreStageRepository;
+import org.springframework.transaction.annotation.Transactional;
+
 @Slf4j
 @Service
+@Transactional(readOnly = true)
 public class RecommandationClientService {
 
-    @Value("${recommandation.service.url}")
+    @Value("${recommandation.service.url:http://localhost:8000}")
     private String recommandationServiceUrl;
 
-    @Value("${recommandation.service.endpoint.recommander}")
+    @Value("${recommandation.service.endpoint.recommander:/recommander}")
     private String recommanderEndpoint;
 
-    @Value("${recommandation.service.endpoint.health}")
+    @Value("${recommandation.service.endpoint.health:/health}")
     private String healthEndpoint;
+
+    @Value("${recommandation.service.endpoint.adequation:/analyser-adequation}")
+    private String adequationEndpoint;
 
     private final RestTemplate restTemplate;
     private final UserRepository userRepository;
     private final EntrepriseRepository entrepriseRepository;
     private final CandidatureRepository candidatureRepository;
+    private final OffreStageRepository offreStageRepository;
 
     public RecommandationClientService(
             RestTemplate restTemplate,
             UserRepository userRepository,
             EntrepriseRepository entrepriseRepository,
-            CandidatureRepository candidatureRepository
+            CandidatureRepository candidatureRepository,
+            OffreStageRepository offreStageRepository
     ) {
         this.restTemplate = restTemplate;
         this.userRepository = userRepository;
         this.entrepriseRepository = entrepriseRepository;
         this.candidatureRepository = candidatureRepository;
+        this.offreStageRepository = offreStageRepository;
     }
 
     /**
@@ -108,26 +119,29 @@ public class RecommandationClientService {
             Utilisateur utilisateur = userRepository.findById(etudiantId)
                     .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé avec id : " + etudiantId));
 
-            // Étape 2 : Récupérer toutes les entreprises
-            List<Entreprise> entreprises = entrepriseRepository.findAll();
+            // Étape 2 : Récupérer toutes les offres (priorité aux offres de stage)
+            List<OffreStage> offresStage = offreStageRepository.findAll();
+            List<OffreEntrepriseDTO> offresEntreprise;
 
-            if (entreprises.isEmpty()) {
-                log.warn("Aucune entreprise disponible pour les recommandations");
-                return Collections.emptyList();
+            if (!offresStage.isEmpty()) {
+                offresEntreprise = construireOffresDepuisOffreStage(offresStage);
+            } else {
+                // Fallback si aucune offre de stage n'a encore été publiée
+                List<Entreprise> entreprises = entrepriseRepository.findAll();
+                if (entreprises.isEmpty()) {
+                    log.warn("Aucune offre ni entreprise disponible pour les recommandations");
+                    return Collections.emptyList();
+                }
+                offresEntreprise = construireOffresEntreprise(entreprises);
             }
-
-            // Étape 3 : Transformer en DTOs
-
-            // Construire le profil étudiant
-            EtudiantProfilDTO profilEtudiant = construireProfilEtudiant(utilisateur);
-
-            // Construire la liste des offres entreprise
-            List<OffreEntrepriseDTO> offresEntreprise = construireOffresEntreprise(entreprises);
 
             if (offresEntreprise.isEmpty()) {
                 log.warn("Aucune offre disponible pour les recommandations");
                 return Collections.emptyList();
             }
+
+            // Étape 3 : Transformer en DTOs
+            EtudiantProfilDTO profilEtudiant = construireProfilEtudiant(utilisateur);
 
             // Étape 4 : Envoyer au service Python
             RecommandationRequestDTO requete = RecommandationRequestDTO.builder()
@@ -170,26 +184,54 @@ public class RecommandationClientService {
 
     /**
      * Construit le DTO du profil utilisateur à partir de l'entité JPA.
-     *
-     * @param utilisateur Entité JPA Utilisateur
-     * @return EtudiantProfilDTO
      */
     private EtudiantProfilDTO construireProfilEtudiant(Utilisateur utilisateur) {
-        // Créer un profil minimal avec les informations disponibles
+        String filiere = (utilisateur.getFiliere() != null && !utilisateur.getFiliere().isBlank())
+                ? utilisateur.getFiliere() : "Général";
+        String niveau = (utilisateur.getNiveauEtudes() != null && !utilisateur.getNiveauEtudes().isBlank())
+                ? utilisateur.getNiveauEtudes() : "L3";
+        List<String> competences = (utilisateur.getCompetences() != null)
+                ? new ArrayList<>(utilisateur.getCompetences()) : new ArrayList<>();
+
         return EtudiantProfilDTO.builder()
                 .id(utilisateur.getId())
-                .filiere("General") // Valeur par défaut si le champ n'existe pas
-                .niveau("L3") // Valeur par défaut
-                .competences(new ArrayList<>()) // Liste vide
-                .motsClesSujetSouhaite(null) // Optionnel
+                .filiere(filiere)
+                .niveau(niveau)
+                .competences(competences)
+                .motsClesSujetSouhaite(filiere)
                 .build();
     }
 
     /**
-     * Construit la liste des DTOs d'offres entreprise à partir des entités JPA.
-     *
-     * @param entreprises Toutes les entreprises de la base de données
-     * @return List<OffreEntrepriseDTO>
+     * Construit la liste des DTOs d'offres à partir des entités OffreStage réelles.
+     */
+    private List<OffreEntrepriseDTO> construireOffresDepuisOffreStage(List<OffreStage> offres) {
+        return offres.stream()
+                .map(this::construireOffreDepuisOffreStage)
+                .collect(Collectors.toList());
+    }
+
+    private OffreEntrepriseDTO construireOffreDepuisOffreStage(OffreStage offre) {
+        String entrepriseNom = (offre.getEntreprise() != null && offre.getEntreprise().getNom() != null)
+                ? offre.getEntreprise().getNom() : "Entreprise";
+        String secteur = (offre.getDomaine() != null && !offre.getDomaine().isBlank())
+                ? offre.getDomaine() : "Général";
+        String sujet = ((offre.getTitre() != null ? offre.getTitre() : "") + " "
+                + (offre.getDescription() != null ? offre.getDescription() : "")).trim();
+        List<String> competences = (offre.getCompetences() != null)
+                ? new ArrayList<>(offre.getCompetences()) : new ArrayList<>();
+
+        return OffreEntrepriseDTO.builder()
+                .id(offre.getId())
+                .nomEntreprise(entrepriseNom)
+                .secteurActivite(secteur)
+                .sujetOffre(sujet)
+                .competencesRequises(competences)
+                .build();
+    }
+
+    /**
+     * Fallback : Construit la liste des DTOs d'offres à partir des entreprises.
      */
     private List<OffreEntrepriseDTO> construireOffresEntreprise(List<Entreprise> entreprises) {
         return entreprises.stream()
@@ -197,17 +239,8 @@ public class RecommandationClientService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Construit un DTO d'offre entreprise.
-     *
-     * @param entreprise Entité JPA Entreprise
-     * @return OffreEntrepriseDTO
-     */
     private OffreEntrepriseDTO construireOffreEntreprise(Entreprise entreprise) {
-        // Construire une description d'offre simple
         String sujetOffre = "Offre de stage chez " + (entreprise.getNom() != null ? entreprise.getNom() : "Entreprise");
-
-        // Compétences requises (optionnel)
         List<String> competencesRequises = new ArrayList<>();
 
         return OffreEntrepriseDTO.builder()
@@ -216,6 +249,92 @@ public class RecommandationClientService {
                 .secteurActivite(entreprise.getSecteurActivite() != null ? entreprise.getSecteurActivite() : "Général")
                 .sujetOffre(sujetOffre)
                 .competencesRequises(competencesRequises)
+                .build();
+    }
+
+    public AdequationResponseDTO analyserAdequation(Long etudiantId, Long offreId) {
+        log.info("Demande d'analyse d'adéquation pour l'étudiant {} et l'offre {}", etudiantId, offreId);
+
+        Utilisateur utilisateur = userRepository.findById(etudiantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé avec id : " + etudiantId));
+
+        OffreStage offre = offreStageRepository.findById(offreId)
+                .orElseThrow(() -> new ResourceNotFoundException("Offre non trouvée avec id : " + offreId));
+
+        EtudiantProfilDTO profilEtudiant = construireProfilEtudiant(utilisateur);
+        OffreEntrepriseDTO dtoOffre = construireOffreDepuisOffreStage(offre);
+
+        try {
+            String url = recommandationServiceUrl + adequationEndpoint;
+            AdequationRequestDTO request = AdequationRequestDTO.builder()
+                    .etudiant(profilEtudiant)
+                    .offre(dtoOffre)
+                    .build();
+
+            AdequationResponseDTO reponse = restTemplate.postForObject(
+                    url,
+                    request,
+                    AdequationResponseDTO.class
+            );
+
+            if (reponse != null) {
+                return reponse;
+            }
+        } catch (Exception e) {
+            log.warn("Service Python de recommandation indisponible ou en erreur ({}). Utilisation de l'analyse locale.", e.getMessage());
+        }
+
+        return calculerAdequationLocal(offreId, profilEtudiant, dtoOffre);
+    }
+
+    private AdequationResponseDTO calculerAdequationLocal(Long offreId, EtudiantProfilDTO etudiant, OffreEntrepriseDTO offre) {
+        List<String> etudiantSkills = etudiant.getCompetences() != null ? etudiant.getCompetences() : Collections.emptyList();
+        List<String> requiredSkills = offre.getCompetencesRequises() != null ? offre.getCompetencesRequises() : Collections.emptyList();
+
+        List<String> acquises = new ArrayList<>();
+        List<String> manquantes = new ArrayList<>();
+
+        for (String req : requiredSkills) {
+            String reqNorm = req.trim().toLowerCase();
+            boolean match = etudiantSkills.stream().anyMatch(es -> {
+                String esNorm = es.trim().toLowerCase();
+                return esNorm.equals(reqNorm) || esNorm.contains(reqNorm) || reqNorm.contains(esNorm);
+            });
+            if (match) {
+                acquises.add(req);
+            } else {
+                manquantes.add(req);
+            }
+        }
+
+        int scorePct;
+        if (!requiredSkills.isEmpty()) {
+            scorePct = (int) Math.round(((double) acquises.size() / requiredSkills.size()) * 100);
+        } else {
+            scorePct = 75; // Bonne correspondance par défaut si aucune compétence requise spécifique
+        }
+
+        List<String> conseils = new ArrayList<>();
+        if (scorePct >= 70) {
+            conseils.add("Excellente adéquation ! Votre profil correspond étroitement aux attentes de l'entreprise.");
+        } else if (scorePct >= 40) {
+            conseils.add("Bonne correspondance globale. Mettez en valeur vos projets pratiques dans votre candidature.");
+        } else {
+            conseils.add("Cette offre propose des compétences complémentaires. Une belle opportunité pour monter en compétences !");
+        }
+
+        if (!manquantes.isEmpty()) {
+            String missingSample = String.join(", ", manquantes.stream().limit(3).toList());
+            conseils.add("Compétences à approfondir pour cette opportunité : " + missingSample + ".");
+        }
+
+        return AdequationResponseDTO.builder()
+                .offreId(offreId)
+                .score((double) scorePct / 100.0)
+                .scorePourcentage(scorePct)
+                .competencesAcquises(acquises)
+                .competencesManquantes(manquantes)
+                .conseils(conseils)
                 .build();
     }
 

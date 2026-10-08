@@ -23,3 +23,16 @@ export interface Recommandation {
 export interface RecommandationAffichage extends Recommandation {
   scorePercentage: number; // score * 100 (ex: 0.87 → 87%)
 }
+
+/**
+ * Analyse d'adéquation et d'écart de compétences (Skill Gap) pour une offre.
+ */
+export interface AdequationAnalyse {
+  offreId: number;
+  score: number;
+  scorePourcentage: number;
+  competencesAcquises: string[];
+  competencesManquantes: string[];
+  conseils: string[];
+}
+

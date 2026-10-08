@@ -29,10 +29,13 @@ import { takeUntil } from 'rxjs/operators';
  * - Utilise OnDestroy et takeUntil pour se désabonner des observables
  * - Prévient les memory leaks
  */
+import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../services/auth.service';
+
 @Component({
   selector: 'app-recommandations',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './recommandations.component.html',
   styleUrls: ['./recommandations.component.css']
 })
@@ -40,6 +43,8 @@ export class RecommandationsComponent implements OnInit, OnDestroy {
 
   // Données
   recommandations: RecommandationAffichage[] = [];
+  termeRecherche = '';
+  filtreScore: 'TOUT' | 'HAUT' | 'MOYEN' = 'TOUT';
 
   // États UI
   isLoading = true;
@@ -49,7 +54,26 @@ export class RecommandationsComponent implements OnInit, OnDestroy {
   // Pour la destruction du composant
   private destroy$ = new Subject<void>();
 
-  constructor(private recommandationService: RecommandationService) { }
+  constructor(
+    private recommandationService: RecommandationService,
+    private authService: AuthService
+  ) { }
+
+  get recommandationsFiltrees(): RecommandationAffichage[] {
+    return this.recommandations.filter((rec) => {
+      const matchRecherche = !this.termeRecherche ||
+        rec.nomEntreprise.toLowerCase().includes(this.termeRecherche.toLowerCase());
+      const matchScore =
+        this.filtreScore === 'TOUT' ||
+        (this.filtreScore === 'HAUT' && rec.scorePercentage >= 70) ||
+        (this.filtreScore === 'MOYEN' && rec.scorePercentage >= 40);
+      return matchRecherche && matchScore;
+    });
+  }
+
+  logout(): void {
+    this.authService.logout();
+  }
 
   ngOnInit(): void {
     this.chargerRecommandations();

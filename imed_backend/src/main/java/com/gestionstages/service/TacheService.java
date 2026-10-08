@@ -43,7 +43,16 @@ public class TacheService {
         if (stage.getEtudiant() == null || !stage.getEtudiant().getId().equals(etudiantConnecteId)) {
             throw new SecurityException("403: Vous n'êtes pas le propriétaire de ce stage");
         }
-        
+
+        if (stage.getOffre() != null) {
+            LocalDate debut = stage.getOffre().getDateDebut();
+            LocalDate fin = stage.getOffre().getDateFin();
+            if (dto.getDate() != null && debut != null && fin != null) {
+                if (dto.getDate().isBefore(debut) || dto.getDate().isAfter(fin)) {
+                    throw new IllegalArgumentException("400: La date doit être comprise entre le " + debut + " et le " + fin);
+                }
+            }
+        }
 
         Tache tache = new Tache();
         tache.setStage(stage);
@@ -69,6 +78,16 @@ public class TacheService {
         
         if (tache.getStatutApprobation() != StatutApprobation.REJETEE) {
             throw new IllegalArgumentException("400: Seule une tâche rejetée peut être modifiée");
+        }
+
+        if (stage.getOffre() != null) {
+            LocalDate debut = stage.getOffre().getDateDebut();
+            LocalDate fin = stage.getOffre().getDateFin();
+            if (dto.getDate() != null && debut != null && fin != null) {
+                if (dto.getDate().isBefore(debut) || dto.getDate().isAfter(fin)) {
+                    throw new IllegalArgumentException("400: La date doit être comprise entre le " + debut + " et le " + fin);
+                }
+            }
         }
         
         tache.setDate(dto.getDate());

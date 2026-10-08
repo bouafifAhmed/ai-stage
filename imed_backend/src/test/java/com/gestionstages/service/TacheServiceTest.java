@@ -54,6 +54,9 @@ class TacheServiceTest {
         offre.setDateDebut(LocalDate.now().minusDays(10));
         offre.setDateFin(LocalDate.now().plusDays(10));
         mockStage.setOffre(offre);
+
+        when(stageRepository.findByIdWithDetails(1L)).thenReturn(Optional.of(mockStage));
+        when(stageRepository.findById(1L)).thenReturn(Optional.of(mockStage));
     }
 
     @Test
@@ -63,6 +66,7 @@ class TacheServiceTest {
         dto.setTitre("Test");
         dto.setDescription("Desc");
 
+        when(stageRepository.findByIdWithDetails(1L)).thenReturn(Optional.of(mockStage));
         when(stageRepository.findById(1L)).thenReturn(Optional.of(mockStage));
         
         Tache savedTache = new Tache();
@@ -124,12 +128,15 @@ class TacheServiceTest {
 
     @Test
     void calculerProgression_Success() {
+        when(stageRepository.findByIdWithDetails(1L)).thenReturn(Optional.of(mockStage));
         when(stageRepository.findById(1L)).thenReturn(Optional.of(mockStage));
         
-        Tache t1 = new Tache(); t1.setDate(LocalDate.now().minusDays(1));
-        Tache t2 = new Tache(); t2.setDate(LocalDate.now().minusDays(1)); // même jour
-        Tache t3 = new Tache(); t3.setDate(LocalDate.now().minusDays(2));
+        Tache t1 = new Tache(); t1.setDate(LocalDate.now().minusDays(1)); t1.setStatutApprobation(StatutApprobation.APPROUVEE);
+        Tache t2 = new Tache(); t2.setDate(LocalDate.now().minusDays(1)); t2.setStatutApprobation(StatutApprobation.APPROUVEE); // même jour
+        Tache t3 = new Tache(); t3.setDate(LocalDate.now().minusDays(2)); t3.setStatutApprobation(StatutApprobation.APPROUVEE);
         
+        when(tacheRepository.findByStageIdOrderByDateAsc(1L))
+            .thenReturn(Arrays.asList(t1, t2, t3));
         when(tacheRepository.findByStageIdAndStatutApprobation(1L, StatutApprobation.APPROUVEE))
             .thenReturn(Arrays.asList(t1, t2, t3));
 
