@@ -1,0 +1,128 @@
+<section class="qcm-shell">
+  @if (loading) {
+    <div class="qcm-loading" aria-live="polite">
+      <div class="loader-ring" aria-hidden="true"></div>
+      <p>Préparation du QCM…</p>
+    </div>
+  } @else if (resultat) {
+    <div class="result-panel" [class.result-panel--success]="resultat.reussi" [class.result-panel--fail]="!resultat.reussi">
+      <div class="score-ring" [class.score-ring--pass]="resultat.reussi">
+        <span class="score-value">{{ resultat.scorePourcentage }}%</span>
+        <span class="score-label">Votre score</span>
+      </div>
+      <h2>{{ resultat.reussi ? 'Félicitations !' : 'QCM non validé' }}</h2>
+      <p class="result-message">{{ resultat.message }}</p>
+      <p class="result-meta">Note minimale requise : {{ resultat.noteMinimalePassage }}%</p>
+      @if (resultat.reussi) {
+        <button class="qcm-btn qcm-btn--primary" type="button" (click)="passed.emit()">
+          Continuer ma candidature →
+        </button>
+      } @else if (resultat.tentativesRestantes > 0) {
+        <button class="qcm-btn qcm-btn--secondary" type="button" (click)="recommencer()">
+          Réessayer · {{ resultat.tentativesRestantes }} tentative(s) restante(s)
+        </button>
+      }
+    </div>
+  } @else if (examen && currentQuestion) {
+    <header class="qcm-hero">
+      <div class="qcm-hero__top">
+        <span class="qcm-badge">{{ examen.domaine }}</span>
+        @if (tempsRestantLabel) {
+          <span class="qcm-timer" [class.qcm-timer--urgent]="tempsEcoule">
+            <span class="qcm-timer__icon" aria-hidden="true">⏱</span>
+            {{ tempsRestantLabel }}
+          </span>
+        }
+      </div>
+      <h2 class="qcm-title">{{ examen.titre }}</h2>
+      <div class="qcm-meta">
+        <span>{{ examen.dureeMinutes }} min</span>
+        <span>Min. {{ examen.noteMinimalePassage }}%</span>
+        <span>{{ examen.questions.length }} questions</span>
+      </div>
+      <div class="qcm-progress" role="progressbar"
+        [attr.aria-valuenow]="progressPercent"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        [attr.aria-label]="'Progression : ' + answeredCount + ' sur ' + examen.questions.length + ' questions répondues'">
+        <div class="qcm-progress__bar" [style.width.%]="progressPercent"></div>
+      </div>
+      <p class="qcm-progress__label">
+        Question {{ currentIndex + 1 }} / {{ examen.questions.length }}
+        · {{ answeredCount }} répondu{{ answeredCount > 1 ? 'es' : 'e' }}
+      </p>
+    </header>
+
+    @if (errorMessage) {
+      <div class="qcm-alert" role="alert">{{ errorMessage }}</div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <article class="question-card">
+        <div class="question-card__header">
+          <span class="question-card__index">{{ currentQuestion.ordre }}</span>
+          <p class="question-card__text">{{ currentQuestion.enonce }}</p>
+        </div>
+
+        <div class="options-list" role="radiogroup" [attr.aria-label]="'Question ' + currentQuestion.ordre">
+          @for (option of currentQuestion.options; track option.id; let i = $index) {
+            <label
+              class="option-card"
+              [class.option-card--selected]="isSelected(currentQuestion, option.id)"
+              [class.option-card--invalid]="isQuestionInvalid(currentQuestion)"
+            >
+              <input
+                type="radio"
+                class="sr-only"
+                [value]="option.id"
+                [formControlName]="controlName(currentQuestion)"
+              />
+              <span class="option-card__letter">{{ optionLetter(i) }}</span>
+              <span class="option-card__text">{{ option.libelle }}</span>
+              <span class="option-card__check" aria-hidden="true">✓</span>
+            </label>
+          }
+        </div>
+
+        @if (isQuestionInvalid(currentQuestion)) {
+          <p class="field-error">Sélectionnez une réponse pour continuer.</p>
+        }
+      </article>
+
+      <footer class="qcm-footer">
+        <button
+          class="qcm-btn qcm-btn--ghost"
+          type="button"
+          [disabled]="currentIndex === 0"
+          (click)="previousQuestion()"
+        >
+          ← Précédent
+        </button>
+
+        @if (!isLastQuestion) {
+          <button class="qcm-btn qcm-btn--primary" type="button" (click)="nextQuestion()">
+            Suivant →
+          </button>
+        } @else {
+          <button class="qcm-btn qcm-btn--primary" type="submit" [disabled]="submitting">
+            {{ submitting ? 'Correction en cours…' : 'Soumettre le QCM' }}
+          </button>
+        }
+      </footer>
+
+      <nav class="question-dots" aria-label="Navigation entre les questions">
+        @for (question of examen.questions; track question.id; let i = $index) {
+          <button
+            type="button"
+            class="question-dot"
+            [class.question-dot--active]="i === currentIndex"
+            [class.question-dot--answered]="isAnswered(question)"
+            [attr.aria-label]="'Aller à la question ' + question.ordre"
+            [attr.aria-current]="i === currentIndex ? 'step' : null"
+            (click)="goToQuestion(i)"
+          ></button>
+        }
+      </nav>
+    </form>
+  }
+</section>

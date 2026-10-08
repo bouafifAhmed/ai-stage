@@ -1,0 +1,92 @@
+<div class="recommandations-container">
+  <!-- Titre -->
+  <h2 class="recommandations-titre">🎯 Offres Recommandées Pour Vous</h2>
+  <p class="recommandations-sous-titre">
+    Basé sur votre profil, votre filière et vos compétences
+  </p>
+
+  <!-- État de chargement -->
+  <div *ngIf="isLoading" class="loading-spinner">
+    <div class="spinner"></div>
+    <p>Calcul des recommandations en cours...</p>
+  </div>
+
+  <!-- État d'erreur -->
+  <div *ngIf="hasError && !isLoading" class="error-banner">
+    <p>⚠️ {{ errorMessage }}</p>
+    <button (click)="retryCharger()" class="btn-retry">Réessayer</button>
+  </div>
+
+  <!-- Liste des recommandations -->
+  <div *ngIf="!isLoading && !hasError" class="recommandations-list">
+    <!-- Cas : Aucune recommandation -->
+    <div *ngIf="recommandations.length === 0" class="no-recommandations">
+      <p>📭 Aucune recommandation disponible pour le moment.</p>
+      <p class="hint">Consultez d'autres offres ou mettez à jour votre profil.</p>
+    </div>
+
+    <!-- Cas : Recommandations disponibles -->
+    <div *ngIf="recommandations.length > 0" class="cards-grid">
+      <!-- Carte pour chaque recommandation -->
+      <div *ngFor="let rec of recommandations; let i = index"
+           class="recommendation-card"
+           [attr.data-index]="i">
+        
+        <!-- Numéro de classement -->
+        <div class="card-rank">
+          <span class="rank-badge">{{ i + 1 }}</span>
+        </div>
+
+        <!-- Contenu de la carte -->
+        <div class="card-content">
+          <!-- Nom de l'entreprise -->
+          <h3 class="card-entreprise">{{ rec.nomEntreprise }}</h3>
+
+          <!-- Score de pertinence -->
+          <div class="card-score-section">
+            <div class="score-info">
+              <span class="score-percentage">{{ rec.scorePercentage }}%</span>
+              <span class="score-description" [ngClass]="getCouleurScore(rec.score)">
+                {{ getDescriptionScore(rec.score) }}
+              </span>
+            </div>
+
+            <!-- Barre de pertinence -->
+            <div class="progress-bar-container">
+              <div class="progress-bar"
+                   [style.width.%]="rec.scorePercentage"
+                   [ngClass]="getCouleurScore(rec.score)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Détails supplémentaires -->
+          <div class="card-details">
+            <p class="detail-text">
+              <strong>Score de similarité :</strong> {{ rec.score.toFixed(2) }} / 1.00
+            </p>
+            <p class="detail-text detail-hint">
+              💡 Plus le score est proche de 1.0, plus l'offre correspond à votre profil.
+            </p>
+          </div>
+        </div>
+
+        <!-- Bouton d'action -->
+        <div class="card-actions">
+          <button class="btn-details" 
+                  [routerLink]="['/offres', rec.offreId]">
+            Voir l'offre
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div *ngIf="recommandations.length > 0" class="stats-section">
+      <p class="stats-text">
+        Affichage de <strong>{{ recommandations.length }}</strong> 
+        offre<span *ngIf="recommandations.length > 1">s</span> recommandée<span *ngIf="recommandations.length > 1">s</span>
+      </p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,120 @@
+{
+  "info": {
+    "name": "Service de Recommandation - Tests",
+    "description": "Collection Postman pour tester le microservice Python",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["health"]
+        },
+        "description": "Vérifie que le service Python est accessible"
+      }
+    },
+    {
+      "name": "2. Recommandation - Exemple Simple",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"etudiant\": {\n    \"id\": 1,\n    \"filiere\": \"Informatique\",\n    \"niveau\": \"L3\",\n    \"competences\": [\"Python\", \"Java\", \"SQL\"],\n    \"motsClesSujetSouhaite\": \"Data Science Machine Learning\"\n  },\n  \"offres\": [\n    {\n      \"id\": 1,\n      \"nomEntreprise\": \"TechCorp\",\n      \"secteurActivite\": \"Informatique\",\n      \"sujetOffre\": \"Développement backend Python et FastAPI\",\n      \"competencesRequises\": [\"Python\", \"FastAPI\", \"PostgreSQL\"]\n    },\n    {\n      \"id\": 2,\n      \"nomEntreprise\": \"DataLabs\",\n      \"secteurActivite\": \"Big Data\",\n      \"sujetOffre\": \"Data Science avec Machine Learning et TensorFlow\",\n      \"competencesRequises\": [\"Python\", \"Machine Learning\", \"TensorFlow\", \"SQL\"]\n    },\n    {\n      \"id\": 3,\n      \"nomEntreprise\": \"FinanceApp\",\n      \"secteurActivite\": \"Finance\",\n      \"sujetOffre\": \"Développement mobile React Native\",\n      \"competencesRequises\": [\"JavaScript\", \"React\", \"Mobile\"]\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/recommander",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["recommander"]
+        },
+        "description": "Calcule les recommandations pour un étudiant avec 3 offres"
+      }
+    },
+    {
+      "name": "3. Recommandation - Exemple Complet (6 offres)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"etudiant\": {\n    \"id\": 2,\n    \"filiere\": \"Génie Logiciel\",\n    \"niveau\": \"M1\",\n    \"competences\": [\"Java\", \"Scala\", \"Spring Boot\", \"Kubernetes\", \"DevOps\"],\n    \"motsClesSujetSouhaite\": \"Architecture microservices cloud native infrastructure as code\"\n  },\n  \"offres\": [\n    {\n      \"id\": 10,\n      \"nomEntreprise\": \"Acme Enterprise\",\n      \"secteurActivite\": \"Entreprise digitale\",\n      \"sujetOffre\": \"Architecture microservices avec Spring Boot et Kubernetes\",\n      \"competencesRequises\": [\"Java\", \"Spring Boot\", \"Docker\", \"Kubernetes\", \"DevOps\"]\n    },\n    {\n      \"id\": 11,\n      \"nomEntreprise\": \"CloudSystems\",\n      \"secteurActivite\": \"Cloud Infrastructure\",\n      \"sujetOffre\": \"DevOps et gestion d'infrastructure cloud AWS\",\n      \"competencesRequises\": [\"Docker\", \"Kubernetes\", \"AWS\", \"Linux\", \"Infrastructure\"]\n    },\n    {\n      \"id\": 12,\n      \"nomEntreprise\": \"RetailCorp\",\n      \"secteurActivite\": \"E-commerce\",\n      \"sujetOffre\": \"Développement d'application mobile iOS Swift\",\n      \"competencesRequises\": [\"Swift\", \"iOS\", \"Objective-C\"]\n    },\n    {\n      \"id\": 13,\n      \"nomEntreprise\": \"SecurityPlus\",\n      \"secteurActivite\": \"Cybersécurité\",\n      \"sujetOffre\": \"Sécurité réseau et pentesting avec Python\",\n      \"competencesRequises\": [\"Python\", \"Linux\", \"Networking\", \"Security\"]\n    },\n    {\n      \"id\": 14,\n      \"nomEntreprise\": \"DataVault\",\n      \"secteurActivite\": \"Data Engineering\",\n      \"sujetOffre\": \"Pipeline data avec Scala et Spark\",\n      \"competencesRequises\": [\"Scala\", \"Apache Spark\", \"Data Engineering\", \"SQL\"]\n    },\n    {\n      \"id\": 15,\n      \"nomEntreprise\": \"WebDesignStudio\",\n      \"secteurActivite\": \"Design Web\",\n      \"sujetOffre\": \"UI/UX et développement frontend React Angular\",\n      \"competencesRequises\": [\"React\", \"Angular\", \"TypeScript\", \"CSS\", \"Design\"]\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/recommander",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["recommander"]
+        },
+        "description": "Exemple complet avec 6 offres diversifiées"
+      }
+    },
+    {
+      "name": "4. Recommandation - Étudiant Finance",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"etudiant\": {\n    \"id\": 3,\n    \"filiere\": \"Finance\",\n    \"niveau\": \"M2\",\n    \"competences\": [\"Excel\", \"VBA\", \"Python\", \"SQL\", \"Analyse financière\"],\n    \"motsClesSujetSouhaite\": \"Trading algorithme quantitative finance risk analysis\"\n  },\n  \"offres\": [\n    {\n      \"id\": 20,\n      \"nomEntreprise\": \"Goldman Sachs\",\n      \"secteurActivite\": \"Banque Investment\",\n      \"sujetOffre\": \"Trading quantitatif et analyse de marché\",\n      \"competencesRequises\": [\"Python\", \"Trading\", \"Quantitative Finance\", \"SQL\"]\n    },\n    {\n      \"id\": 21,\n      \"nomEntreprise\": \"JP Morgan\",\n      \"secteurActivite\": \"Banque\",\n      \"sujetOffre\": \"Risk analysis et gestion des risques financiers\",\n      \"competencesRequises\": [\"Risk Analysis\", \"Python\", \"Excel\", \"SQL\"]\n    },\n    {\n      \"id\": 22,\n      \"nomEntreprise\": \"TechStartup\",\n      \"secteurActivite\": \"Tech\",\n      \"sujetOffre\": \"Développement full-stack web application\",\n      \"competencesRequises\": [\"JavaScript\", \"React\", \"Node.js\", \"MongoDB\"]\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/recommander",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["recommander"]
+        },
+        "description": "Test avec un profil Finance M2"
+      }
+    },
+    {
+      "name": "5. Recommandation - Cas Limite (0 offres)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"etudiant\": {\n    \"id\": 4,\n    \"filiere\": \"Informatique\",\n    \"niveau\": \"L3\",\n    \"competences\": [\"Python\"],\n    \"motsClesSujetSouhaite\": null\n  },\n  \"offres\": []\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/recommander",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["recommander"]
+        },
+        "description": "Test avec 0 offres (doit retourner liste vide)"
+      }
+    }
+  ]
+}

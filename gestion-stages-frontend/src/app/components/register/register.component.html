@@ -1,0 +1,106 @@
+<main class="auth-page">
+  <section class="auth-card" aria-labelledby="register-title">
+    <p class="eyebrow">Gestion des stages</p>
+    <h1 id="register-title">Créer un compte</h1>
+    <p class="subtitle">Renseignez vos informations pour commencer.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="name-grid">
+        <div>
+          <label for="nom">{{ isEntreprise ? "Nom de l'entreprise" : "Nom" }}</label>
+          <input id="nom" type="text" formControlName="nom" autocomplete="family-name" />
+          @if (form.controls.nom.touched && form.controls.nom.invalid) {
+            <small class="field-error">Le nom est obligatoire.</small>
+          }
+        </div>
+
+        @if (!isEntreprise) {
+          <div>
+            <label for="prenom">Prénom</label>
+            <input
+              id="prenom"
+              type="text"
+              formControlName="prenom"
+              autocomplete="given-name"
+            />
+            @if (form.controls.prenom.touched && form.controls.prenom.invalid) {
+              <small class="field-error">Le prénom est obligatoire.</small>
+            }
+          </div>
+        }
+      </div>
+
+      <label for="email">Adresse email</label>
+      <input id="email" type="email" formControlName="email" autocomplete="email" />
+      @if (form.controls.email.touched && form.controls.email.invalid) {
+        <small class="field-error">Saisissez une adresse email valide.</small>
+      }
+
+      <label for="motDePasse">Mot de passe</label>
+      <input
+        id="motDePasse"
+        type="password"
+        formControlName="motDePasse"
+        autocomplete="new-password"
+      />
+      @if (form.controls.motDePasse.touched && form.controls.motDePasse.invalid) {
+        <small class="field-error">
+          Le mot de passe doit contenir entre 8 et 72 caractères.
+        </small>
+      }
+
+      <label for="role">Rôle</label>
+      <select id="role" formControlName="role" (change)="onRoleChange()">
+        @for (role of roles; track role.value) {
+          <option [value]="role.value">{{ role.label }}</option>
+        }
+      </select>
+
+      @if (isEntreprise) {
+        <label for="adresse">Adresse</label>
+        <input id="adresse" type="text" formControlName="adresse" autocomplete="street-address" />
+
+        <label for="ville">Ville</label>
+        <input id="ville" type="text" formControlName="ville" autocomplete="address-level2" />
+
+        <label for="taille">Taille</label>
+        <select id="taille" formControlName="taille">
+          <option value="">Non renseignée</option>
+          @for (taille of tailles; track taille.value) {
+            <option [value]="taille.value">{{ taille.label }}</option>
+          }
+        </select>
+
+        <label for="secteurActivite">Secteur d'activité</label>
+        <input id="secteurActivite" type="text" formControlName="secteurActivite" />
+
+        <label for="telephone">Téléphone</label>
+        <input id="telephone" type="tel" formControlName="telephone" autocomplete="tel" />
+
+        <label for="siteWeb">Site web</label>
+        <input
+          id="siteWeb"
+          type="url"
+          formControlName="siteWeb"
+          placeholder="https://exemple.com"
+        />
+      }
+
+      @if (serverError) {
+        <div class="server-error" role="alert">{{ serverError }}</div>
+      }
+
+      @if (successMessage) {
+        <div role="status">{{ successMessage }}</div>
+      }
+
+      <button type="submit" [disabled]="loading">
+        {{ loading ? 'Création…' : 'Créer mon compte' }}
+      </button>
+    </form>
+
+    <p class="switch-link">
+      Déjà inscrit ? <a routerLink="/login">Se connecter</a>
+    </p>
+  </section>
+</main>

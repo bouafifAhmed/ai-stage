@@ -1,0 +1,167 @@
+<main class="admin-page">
+  <section class="admin-shell">
+    <nav aria-label="Fil d’Ariane">
+      <a routerLink="/espace-super-admin">Espace super administrateur</a>
+      <span>/</span>
+      <span>Entreprises</span>
+    </nav>
+
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Back-office</p>
+        <h1>Gestion des entreprises</h1>
+        <p>{{ totalElements }} entreprise(s) enregistrée(s)</p>
+      </div>
+      <button class="primary" type="button" (click)="openCreate()">
+        Ajouter une entreprise
+      </button>
+    </header>
+
+    <div class="toolbar">
+      <label for="statut-filter">Filtrer par statut</label>
+      <select
+        id="statut-filter"
+        [(ngModel)]="statutFilter"
+        (ngModelChange)="applyFilter()"
+      >
+        <option value="">Tous les statuts</option>
+        <option value="VALIDEE">Validées</option>
+        <option value="EN_ATTENTE">En attente</option>
+        <option value="REJETEE">Rejetées</option>
+      </select>
+    </div>
+
+    @if (errorMessage) {
+      <div class="alert" role="alert">{{ errorMessage }}</div>
+    }
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Entreprise</th>
+            <th>Contact</th>
+            <th>Localisation</th>
+            <th>Statut</th>
+            <th>Inscription</th>
+            <th><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading) {
+            <tr>
+              <td colspan="6" class="empty">Chargement…</td>
+            </tr>
+          } @else if (entreprises.length === 0) {
+            <tr>
+              <td colspan="6" class="empty">Aucune entreprise trouvée.</td>
+            </tr>
+          } @else {
+            @for (entreprise of entreprises; track entreprise.id) {
+              <tr>
+                <td>
+                  <strong>{{ entreprise.nom }}</strong>
+                  <small>{{ entreprise.secteurActivite || "Secteur non renseigné" }}</small>
+                </td>
+                <td>
+                  <a [href]="'mailto:' + entreprise.emailContact">
+                    {{ entreprise.emailContact }}
+                  </a>
+                  <small>{{ entreprise.telephone || "Aucun téléphone" }}</small>
+                </td>
+                <td>{{ entreprise.ville || "—" }}</td>
+                <td>
+                  <span class="badge" [class]="entreprise.statutValidation.toLowerCase()">
+                    {{ statusLabel(entreprise.statutValidation) }}
+                  </span>
+                </td>
+                <td>{{ entreprise.dateInscription | date: "dd/MM/yyyy" }}</td>
+                <td class="actions">
+                  @if (pendingDeactivationId === entreprise.id) {
+                    <span>Confirmer ?</span>
+                    <button
+                      class="danger"
+                      type="button"
+                      (click)="confirmDeactivation(entreprise.id)"
+                    >
+                      Oui
+                    </button>
+                    <button
+                      class="link-button"
+                      type="button"
+                      (click)="cancelDeactivation()"
+                    >
+                      Non
+                    </button>
+                  } @else {
+                    @if (entreprise.statutValidation !== "VALIDEE") {
+                      <button
+                        class="link-button"
+                        type="button"
+                        [disabled]="processingValidationId === entreprise.id"
+                        (click)="validateEntreprise(entreprise.id)"
+                      >
+                        {{
+                          processingValidationId === entreprise.id
+                            ? "Validation…"
+                            : "Valider"
+                        }}
+                      </button>
+                    }
+                    <button
+                      class="link-button"
+                      type="button"
+                      (click)="openEdit(entreprise)"
+                    >
+                      Modifier
+                    </button>
+                    @if (entreprise.statutValidation !== "REJETEE") {
+                      <button
+                        class="link-button danger-text"
+                        type="button"
+                        (click)="requestDeactivation(entreprise.id)"
+                      >
+                        Désactiver
+                      </button>
+                    }
+                  }
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="pagination">
+      <button type="button" (click)="previousPage()" [disabled]="page === 0">
+        Précédent
+      </button>
+      <span>Page {{ totalPages === 0 ? 0 : page + 1 }} sur {{ totalPages }}</span>
+      <button
+        type="button"
+        (click)="nextPage()"
+        [disabled]="page + 1 >= totalPages"
+      >
+        Suivant
+      </button>
+    </footer>
+  </section>
+</main>
+
+@if (modalOpen) {
+  <div class="modal-backdrop">
+    <section
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Formulaire entreprise"
+    >
+      <app-entreprise-form
+        [entreprise]="selectedEntreprise"
+        (saved)="onSaved()"
+        (cancelled)="closeModal()"
+      />
+    </section>
+  </div>
+}
