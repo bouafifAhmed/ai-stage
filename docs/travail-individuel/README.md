@@ -8,6 +8,10 @@ et analyse d'adéquation affichée sur la page d'une offre.
 
 ## Correspondance avec la grille (travail individuel, 8 pts)
 
+Tous les critères (individuels et d'équipe) et tous les prompts du module sont réunis dans
+[criteres-et-prompts.md](criteres-et-prompts.md).
+Pour reconstruire tout le module à partir de zéro, prompt par prompt : [prompts-de-zero.md](prompts-de-zero.md).
+
 | Critère | Preuves |
 |---|---|
 | **Intégration d'une API IA / modèle** (3,5 pts) | Modèle TF-IDF + similarité cosinus pour le classement : [recommandation.py](../../recommandation-service/recommandation.py). API Claude pour l'analyse d'adéquation (sortie JSON contrainte, garde-fous, repli) : [analyse_ia.py](../../recommandation-service/analyse_ia.py). Branchement Spring : [RecommandationClientService.java](../../imed_backend/src/main/java/com/gestionstages/service/RecommandationClientService.java). Affichage : [etudiant-offre-detail.component.ts](../../gestion-stages-frontend/src/app/components/etudiant-offre-detail/etudiant-offre-detail.component.ts) |
