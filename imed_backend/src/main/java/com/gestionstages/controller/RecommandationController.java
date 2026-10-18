@@ -178,6 +178,7 @@ public class RecommandationController {
      * @return ResponseEntity<Boolean>
      */
     @GetMapping("/health")
+    @PreAuthorize("hasRole('ETUDIANT')")
     public ResponseEntity<Boolean> healthCheck() {
         log.debug("Health check du service de recommandation");
         boolean available = recommandationClientService.isServiceAvailable();

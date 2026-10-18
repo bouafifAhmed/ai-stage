@@ -71,9 +71,21 @@ class AdequationRequestDTO(BaseModel):
     offre: OffreEntrepriseDTO
 
 
+class CorrespondanceCompetenceDTO(BaseModel):
+    """
+    Verdict pour une compétence requise par l'offre : acquise ou non, et pourquoi.
+    """
+    competenceRequise: str
+    acquise: bool
+    justification: str = ""
+
+
 class AdequationResponseDTO(BaseModel):
     """
     Résultat d'analyse d'adéquation et écart de compétences (Skill Gap).
+
+    source vaut "ia" quand le LLM a produit l'analyse, "regles" sinon.
+    Le score est toujours calculé par le service, jamais recopié depuis le LLM.
     """
     offreId: int
     score: float
@@ -81,4 +93,8 @@ class AdequationResponseDTO(BaseModel):
     competencesAcquises: List[str]
     competencesManquantes: List[str]
     conseils: List[str]
+    correspondances: List[CorrespondanceCompetenceDTO] = Field(default_factory=list)
+    synthese: Optional[str] = Field(default=None, description="Résumé rédigé par le LLM (absent en mode règles)")
+    source: str = Field(default="regles", description="ia | regles")
+    modele: Optional[str] = Field(default=None, description="Modèle LLM ayant répondu, si source=ia")
 

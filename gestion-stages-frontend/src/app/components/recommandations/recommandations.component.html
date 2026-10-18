@@ -75,8 +75,14 @@
 
     <!-- Liste des recommandations -->
     <div *ngIf="!isLoading && !hasError">
+      <!-- Cas : moteur de recommandation Python arrêté (Spring renvoie une liste vide) -->
+      <div *ngIf="serviceIndisponible" class="error-banner card">
+        <p>⚠️ Le moteur de recommandation est momentanément indisponible.</p>
+        <button (click)="retryCharger()" class="button primary">Réessayer</button>
+      </div>
+
       <!-- Cas : Aucune recommandation du tout -->
-      <div *ngIf="recommandations.length === 0" class="empty card">
+      <div *ngIf="recommandations.length === 0 && !serviceIndisponible" class="empty card">
         <p>📭 Aucune recommandation disponible pour le moment.</p>
         <p class="muted">
           Mettez à jour vos compétences dans

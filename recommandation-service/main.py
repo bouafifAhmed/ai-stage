@@ -3,7 +3,8 @@ Microservice FastAPI de recommandation étudiant-entreprise.
 
 Point d'entrée principal. Expose :
 - GET  /health                 : Vérification que le service tourne
-- POST /recommander            : Calcule les offres recommandées pour un étudiant
+- POST /recommander            : Calcule les offres recommandées pour un étudiant (TF-IDF)
+- POST /analyser-adequation    : Analyse une offre précise (Claude, repli sur des règles)
 
 À lancer avec :
     uvicorn main:app --reload --port 8000
@@ -24,6 +25,7 @@ from models import (
     AdequationResponseDTO
 )
 from recommandation import calculer_recommandations, analyser_adequation
+from analyse_ia import analyser_adequation_ia, ia_disponible, MODELE
 
 
 # Configuration du logging
@@ -34,8 +36,13 @@ logger = logging.getLogger(__name__)
 # Instanciation de l'application FastAPI
 app = FastAPI(
     title="Service de Recommandation - Gestion de Stages",
-    description="Microservice de recommandation basé sur TF-IDF et similarité cosinus",
-    version="1.0.0"
+    description="Classement TF-IDF + similarité cosinus ; analyse d'adéquation par LLM (Claude) avec repli sur des règles",
+    version="1.1.0"
+)
+
+logger.info(
+    "Analyse d'adéquation : %s",
+    f"IA activée (modèle {MODELE})" if ia_disponible() else "mode règles uniquement",
 )
 
 
@@ -176,14 +183,23 @@ async def analyser_adequation_endpoint(request: AdequationRequestDTO):
     Endpoint d'analyse d'adéquation et d'écart de compétences (Skill Gap).
     Calcule le taux de compatibilité, liste les compétences acquises/manquantes,
     et fournit des conseils personnalisés pour une offre précise.
+
+    Claude analyse l'offre quand une clé API est configurée (source="ia") ;
+    sinon, ou si l'appel échoue, l'analyse par règles prend le relais (source="regles").
     """
     try:
         logger.info(
             f"Analyse d'adéquation demandée pour l'étudiant {request.etudiant.id} "
             f"et l'offre {request.offre.id}"
         )
-        resultat = analyser_adequation(request.etudiant, request.offre)
-        return resultat
+        try:
+            resultat_ia = await analyser_adequation_ia(request.etudiant, request.offre)
+        except Exception as e:
+            logger.error(f"Erreur inattendue de l'analyse IA, repli sur les règles : {e}", exc_info=True)
+            resultat_ia = None
+        if resultat_ia is not None:
+            return resultat_ia
+        return analyser_adequation(request.etudiant, request.offre)
     except Exception as e:
         logger.error(f"Erreur lors de l'analyse d'adéquation : {str(e)}", exc_info=True)
         raise HTTPException(

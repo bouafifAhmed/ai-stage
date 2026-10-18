@@ -4,6 +4,7 @@
 **/.angular/
 **/target/
 **/venv/
+**/.venv/
 **/__pycache__/
 *.pyc
 .idea/

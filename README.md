@@ -227,19 +227,36 @@ etudiant { id, filiere, niveau, competences[], motsClesSujetSouhaite }
 offres[] { id, nomEntreprise, secteurActivite, sujetOffre, competencesRequises[] }.
 Texte étudiant = « filiere niveau compétences mots-clés ».
 Texte offre = « secteur sujet compétences ».
-TF-IDF puis similarité cosinus, tri décroissant.
+TF-IDF (accents supprimés, mots vides français retirés, C, R, C++, C#, Node.js conservés)
+puis similarité cosinus, tri décroissant.
 GET /health renvoie {"status":"ok"}.
 POST /analyser-adequation score une seule offre et renvoie le détail d’adéquation.
+Si ANTHROPIC_API_KEY est définie, Claude (claude-opus-5-5, effort low, délai 7 s, aucun nouvel essai)
+juge chaque compétence requise (acquise ou non, avec une justification), rédige une synthèse
+et 2 à 4 conseils, en JSON contraint par un schéma. N’envoyer ni l’id ni le nom de l’étudiant.
+Ignorer les compétences inventées par le modèle, évaluer les oubliées par règles,
+et recalculer le score : 0,65 × part des compétences couvertes + 0,35 × similarité TF-IDF.
+Sans clé, ou en cas de délai dépassé, d’erreur, de refus ou de JSON invalide : analyse par règles
+(comparaison mot à mot, « Java » ne couvre pas « JavaScript », synonymes ML, JS, TS, K8s, IA).
+La réponse porte source (ia | regles | regles-spring), modele, synthese et correspondances[].
 Côté Spring, construire le profil ainsi : filiere ou « Général » si vide,
 niveauEtudes ou « L3 » si vide, compétences copiées, motsClesSujetSouhaite = filiere.
+Ne proposer que les offres PUBLIEE (les autres renvoient 404 côté étudiant).
 Pour chaque offre : nom d’entreprise ou « Entreprise », secteur = domaine ou « Général »,
 sujet = titre + description.
-Appeler http://localhost:8000 avec timeout 10 secondes.
-Si le service Python est down, ne pas casser l’API : renvoyer une liste vide et logger l’erreur.
+Appeler http://localhost:8000 avec timeout 10 secondes (connexion et lecture du RestTemplate).
+Si le service Python est down, ne pas casser l’API : renvoyer une liste vide et logger l’erreur ;
+pour l’adéquation, calcul local par règles (source regles-spring).
 Endpoints Spring, étudiant authentifié : GET /api/recommandations,
 GET /api/recommandations/adequation/{offreId}, GET /api/recommandations/health.
 Page /espace-etudiant/recommandations : état chargement, bannière d’erreur, liste triée, filtre.
+Si la liste est vide, interroger /health pour signaler un moteur arrêté plutôt qu’une liste vide.
+Page offre : badge « Analyse IA » seulement si source = ia, synthèse, justification en info-bulle,
+mention « Analyse générée par IA… elle peut se tromper ».
 ```
+
+Évaluation et choix de modèles : `recommandation-service/evaluation.py` et
+`docs/travail-individuel/` (justification, journal des prompts, gain de productivité).
 
 ## 11. Journal de stage et progression
 
@@ -340,6 +357,8 @@ CvStorageServiceTest : PDF valide relu, fichier qui n’est pas un PDF refusé.
 SignatureStorageServiceTest : PNG relu, signature vide refusée.
 TacheAttachmentStorageServiceTest : nom serveur et nom client, extension exécutable refusée.
 JournalPdfServiceTest : PDF avec tâches et PDF sans tâches.
+RecommandationClientServiceTest : profil par défaut, offres PUBLIEE seulement, liste vide si Python
+est down, adéquation locale si Python est down, offre non publiée refusée, Java ≠ JavaScript.
 TacheServiceTest : création, pas le propriétaire, hors dates, modification si non rejetée, progression.
 TacheAssigneeServiceTest : autre entreprise, autre étudiant, valider une tâche non terminée,
 rejet sans commentaire, collègue de la même entreprise, première assignation,
@@ -350,6 +369,7 @@ SuperAdminInitializerTest : création si le compte n’existe pas.
 UtilisateurTest : autorité ROLE_ + enum.
 AdminEntrepriseSecurityTest et AdminEtudiantSecurityTest : CHEF_DEPT_STAGE reçoit 403.
 TacheControllerSecurityTest : anonyme 401, étudiant autorisé sur le journal.
+RecommandationControllerSecurityTest : anonyme 401 sur les trois endpoints, entreprise 403, étudiant 200 sur /health.
 ImedBackendApplicationTests : le contexte de test charge.
 Frontend Karma, HttpClientTestingModule :
 app.component.spec.ts crée l’application.
@@ -359,8 +379,13 @@ entreprise-stage.service.spec.ts : page d’offres, création, mise à jour, can
 etudiant-stage.service.spec.ts : offres, détail, profil, CV (upload, extraction, download, delete),
 candidatures, notifications lues.
 tache-assignee.service.spec.ts : liste filtrée, assignation, multipart, validation, refus avec stageId dans l’URL, blob.
-Lancer : mvnw test dans imed_backend (58 tests).
-npx ng test --watch=false --browsers=ChromeHeadless dans gestion-stages-frontend (16 tests).
+recommandation.service.spec.ts : pourcentage de score, erreurs propagées, health à false en cas d’erreur, adéquation ou null.
+recommandations.component.spec.ts : liste triée et filtre, bannière d’erreur, moteur arrêté, liste vide moteur actif.
+Lancer : mvnw test dans imed_backend (67 tests).
+Service Python : pytest test_service.py dans recommandation-service (23 tests, client Claude simulé).
+npx ng test --watch=false --browsers=ChromeHeadless dans gestion-stages-frontend (24 tests).
+Bout en bout (Spring profil local + service Python lancés) : python scenario_bout_en_bout.py actif,
+puis arrêter le service Python et lancer python scenario_bout_en_bout.py arrete.
 Ne pas laisser Karma ouvert : le port 9876 n’est pas l’application.
 ```
 
@@ -376,6 +401,9 @@ API avec MySQL : mvnw spring-boot:run, base gestion_stages créée si absente, u
 Recommandations : dans recommandation-service, python -m venv venv,
 venv\Scripts\python -m pip install -r requirements.txt,
 puis venv\Scripts\python -m uvicorn main:app --host 127.0.0.1 --port 8000.
+Pour l’analyse par IA, définir ANTHROPIC_API_KEY avant de lancer uvicorn ; sans clé, le service reste en mode règles.
+Le dossier venv/ est versionné et pointe vers le Python de la dernière personne qui l’a commité :
+s’il ne démarre pas, créer un .venv local (ignoré par git) avec py -m venv .venv, sans toucher à venv/.
 Vérifier GET http://localhost:8000/health.
 Ne pas ouvrir http://localhost:9876 : c’est Karma, il s’arrête à la fin des tests.
 ```

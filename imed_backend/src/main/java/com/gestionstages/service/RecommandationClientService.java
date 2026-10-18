@@ -2,10 +2,8 @@ package com.gestionstages.service;
 
 import com.gestionstages.dto.recommandation.*;
 import com.gestionstages.model.Candidature;
-import com.gestionstages.model.Entreprise;
 import com.gestionstages.model.Utilisateur;
 import com.gestionstages.repository.CandidatureRepository;
-import com.gestionstages.repository.EntrepriseRepository;
 import com.gestionstages.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.text.Normalizer;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
  *
  * Responsabilités :
  * 1. Récupérer le profil de l'utilisateur connecté depuis la base de données
- * 2. Récupérer toutes les offres/entreprises disponibles
+ * 2. Récupérer les offres publiées
  * 3. Transformer les entités Spring en DTOs Pydantic
  * 4. Envoyer une requête POST au service Python
  * 5. Gérer les erreurs gracieusement (si le service Python est indisponible)
@@ -53,22 +54,21 @@ public class RecommandationClientService {
     @Value("${recommandation.service.endpoint.adequation:/analyser-adequation}")
     private String adequationEndpoint;
 
+    private static final Pattern MOT = Pattern.compile("[a-z0-9][a-z0-9+#.]*");
+
     private final RestTemplate restTemplate;
     private final UserRepository userRepository;
-    private final EntrepriseRepository entrepriseRepository;
     private final CandidatureRepository candidatureRepository;
     private final OffreStageRepository offreStageRepository;
 
     public RecommandationClientService(
             RestTemplate restTemplate,
             UserRepository userRepository,
-            EntrepriseRepository entrepriseRepository,
             CandidatureRepository candidatureRepository,
             OffreStageRepository offreStageRepository
     ) {
         this.restTemplate = restTemplate;
         this.userRepository = userRepository;
-        this.entrepriseRepository = entrepriseRepository;
         this.candidatureRepository = candidatureRepository;
         this.offreStageRepository = offreStageRepository;
     }
@@ -97,7 +97,7 @@ public class RecommandationClientService {
      *
      * Processus :
      * 1. Récupérer l'utilisateur (étudiant) depuis la base de données
-     * 2. Récupérer toutes les entreprises disponibles
+     * 2. Récupérer les offres publiées
      * 3. Transformer en DTOs
      * 4. Envoyer au service Python via POST
      * 5. Retourner les recommandations triées par score
@@ -105,7 +105,7 @@ public class RecommandationClientService {
      * Gestion d'erreur :
      * - Si le service Python est indisponible : retourner une liste vide (fonctionnalité non-critique)
      * - Si l'utilisateur n'existe pas : lever une exception (cas d'erreur applicatif)
-     * - Si aucune offre disponible : retourner une liste vide
+     * - Si aucune offre publiée : retourner une liste vide
      *
      * @param etudiantId Identifiant de l'étudiant (utilisateur) connecté
      * @return List<RecommandationItemDTO> : offres recommandées triées par score décroissant
@@ -119,24 +119,13 @@ public class RecommandationClientService {
             Utilisateur utilisateur = userRepository.findById(etudiantId)
                     .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé avec id : " + etudiantId));
 
-            // Étape 2 : Récupérer toutes les offres (priorité aux offres de stage)
-            List<OffreStage> offresStage = offreStageRepository.findAll();
-            List<OffreEntrepriseDTO> offresEntreprise;
-
-            if (!offresStage.isEmpty()) {
-                offresEntreprise = construireOffresDepuisOffreStage(offresStage);
-            } else {
-                // Fallback si aucune offre de stage n'a encore été publiée
-                List<Entreprise> entreprises = entrepriseRepository.findAll();
-                if (entreprises.isEmpty()) {
-                    log.warn("Aucune offre ni entreprise disponible pour les recommandations");
-                    return Collections.emptyList();
-                }
-                offresEntreprise = construireOffresEntreprise(entreprises);
-            }
+            // Étape 2 : Récupérer les offres publiées, les seules que l'étudiant peut ouvrir
+            // (une offre en brouillon ou archivée mènerait à une page 404 depuis la liste)
+            List<OffreEntrepriseDTO> offresEntreprise = construireOffresDepuisOffreStage(
+                    offreStageRepository.findAllByStatut(OffreStage.StatutOffre.PUBLIEE));
 
             if (offresEntreprise.isEmpty()) {
-                log.warn("Aucune offre disponible pour les recommandations");
+                log.warn("Aucune offre publiée disponible pour les recommandations");
                 return Collections.emptyList();
             }
 
@@ -230,35 +219,13 @@ public class RecommandationClientService {
                 .build();
     }
 
-    /**
-     * Fallback : Construit la liste des DTOs d'offres à partir des entreprises.
-     */
-    private List<OffreEntrepriseDTO> construireOffresEntreprise(List<Entreprise> entreprises) {
-        return entreprises.stream()
-                .map(this::construireOffreEntreprise)
-                .collect(Collectors.toList());
-    }
-
-    private OffreEntrepriseDTO construireOffreEntreprise(Entreprise entreprise) {
-        String sujetOffre = "Offre de stage chez " + (entreprise.getNom() != null ? entreprise.getNom() : "Entreprise");
-        List<String> competencesRequises = new ArrayList<>();
-
-        return OffreEntrepriseDTO.builder()
-                .id(entreprise.getId())
-                .nomEntreprise(entreprise.getNom() != null ? entreprise.getNom() : "")
-                .secteurActivite(entreprise.getSecteurActivite() != null ? entreprise.getSecteurActivite() : "Général")
-                .sujetOffre(sujetOffre)
-                .competencesRequises(competencesRequises)
-                .build();
-    }
-
     public AdequationResponseDTO analyserAdequation(Long etudiantId, Long offreId) {
         log.info("Demande d'analyse d'adéquation pour l'étudiant {} et l'offre {}", etudiantId, offreId);
 
         Utilisateur utilisateur = userRepository.findById(etudiantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé avec id : " + etudiantId));
 
-        OffreStage offre = offreStageRepository.findById(offreId)
+        OffreStage offre = offreStageRepository.findByIdAndStatut(offreId, OffreStage.StatutOffre.PUBLIEE)
                 .orElseThrow(() -> new ResourceNotFoundException("Offre non trouvée avec id : " + offreId));
 
         EtudiantProfilDTO profilEtudiant = construireProfilEtudiant(utilisateur);
@@ -293,18 +260,24 @@ public class RecommandationClientService {
 
         List<String> acquises = new ArrayList<>();
         List<String> manquantes = new ArrayList<>();
+        List<CorrespondanceCompetenceDTO> correspondances = new ArrayList<>();
 
         for (String req : requiredSkills) {
-            String reqNorm = req.trim().toLowerCase();
-            boolean match = etudiantSkills.stream().anyMatch(es -> {
-                String esNorm = es.trim().toLowerCase();
-                return esNorm.equals(reqNorm) || esNorm.contains(reqNorm) || reqNorm.contains(esNorm);
-            });
-            if (match) {
+            Optional<String> couvertePar = etudiantSkills.stream()
+                    .filter(es -> competencesCorrespondent(req, es))
+                    .findFirst();
+            if (couvertePar.isPresent()) {
                 acquises.add(req);
             } else {
                 manquantes.add(req);
             }
+            correspondances.add(CorrespondanceCompetenceDTO.builder()
+                    .competenceRequise(req)
+                    .acquise(couvertePar.isPresent())
+                    .justification(couvertePar
+                            .map(es -> "Couverte par « " + es + " » dans votre profil.")
+                            .orElse("Absente de votre profil."))
+                    .build());
         }
 
         int scorePct;
@@ -335,7 +308,38 @@ public class RecommandationClientService {
                 .competencesAcquises(acquises)
                 .competencesManquantes(manquantes)
                 .conseils(conseils)
+                .correspondances(correspondances)
+                .source("regles-spring")
                 .build();
+    }
+
+    /**
+     * Comparaison mot à mot, sans casse ni accents, comme le service Python :
+     * « Java » ne correspond pas à « JavaScript » (l'ancienne comparaison par sous-chaîne
+     * les confondait), « Spring » correspond à « Spring Boot ».
+     */
+    static boolean competencesCorrespondent(String requise, String possedee) {
+        Set<String> motsRequise = motsCompetence(requise);
+        Set<String> motsPossedee = motsCompetence(possedee);
+        if (motsRequise.isEmpty() || motsPossedee.isEmpty()) {
+            return false;
+        }
+        return motsPossedee.containsAll(motsRequise) || motsRequise.containsAll(motsPossedee);
+    }
+
+    private static Set<String> motsCompetence(String competence) {
+        if (competence == null) {
+            return Set.of();
+        }
+        String normalisee = Normalizer.normalize(competence, Normalizer.Form.NFKD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT);
+        Set<String> mots = new HashSet<>();
+        Matcher matcher = MOT.matcher(normalisee);
+        while (matcher.find()) {
+            mots.add(matcher.group());
+        }
+        return mots;
     }
 
     /**

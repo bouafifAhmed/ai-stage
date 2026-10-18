@@ -81,7 +81,11 @@ type EtapeCandidature = 'formulaire' | 'qcm' | 'bloque' | 'succes';
               <div class="ai-fit-card">
                 <div class="ai-fit-header">
                   <div class="ai-title-wrap">
-                    <span class="ai-badge">🤖 Analyse IA</span>
+                    @if (adequation.source === 'ia') {
+                      <span class="ai-badge" [title]="'Analyse rédigée par ' + (adequation.modele || 'un modèle de langage')">🤖 Analyse IA</span>
+                    } @else {
+                      <span class="ai-badge rules" title="Analyse calculée par règles, sans modèle de langage">⚙️ Analyse automatique</span>
+                    }
                     <h3 class="ai-fit-title">Compatibilité avec votre profil</h3>
                   </div>
                   <span class="ai-score-pill" [class.high]="adequation.scorePourcentage >= 70" [class.medium]="adequation.scorePourcentage >= 40 && adequation.scorePourcentage < 70" [class.low]="adequation.scorePourcentage < 40">
@@ -93,13 +97,17 @@ type EtapeCandidature = 'formulaire' | 'qcm' | 'bloque' | 'succes';
                   <div class="ai-bar-fill" [style.width.%]="adequation.scorePourcentage" [class.high]="adequation.scorePourcentage >= 70" [class.medium]="adequation.scorePourcentage >= 40 && adequation.scorePourcentage < 70" [class.low]="adequation.scorePourcentage < 40"></div>
                 </div>
 
+                @if (adequation.synthese) {
+                  <p class="ai-synthese">{{ adequation.synthese }}</p>
+                }
+
                 <div class="ai-skills-comparison">
                   @if (adequation.competencesAcquises.length) {
                     <div class="skill-col">
                       <p class="skill-col-label label-success">✓ Vos compétences en adéquation :</p>
                       <div class="tags">
                         @for (s of adequation.competencesAcquises; track s) {
-                          <span class="tag-match">{{ s }}</span>
+                          <span class="tag-match" [title]="justification(s)">{{ s }}</span>
                         }
                       </div>
                     </div>
@@ -109,7 +117,7 @@ type EtapeCandidature = 'formulaire' | 'qcm' | 'bloque' | 'succes';
                       <p class="skill-col-label label-missing">⚡ Compétences complémentaires :</p>
                       <div class="tags">
                         @for (s of adequation.competencesManquantes; track s) {
-                          <span class="tag-missing">{{ s }}</span>
+                          <span class="tag-missing" [title]="justification(s)">{{ s }}</span>
                         }
                       </div>
                     </div>
@@ -118,13 +126,16 @@ type EtapeCandidature = 'formulaire' | 'qcm' | 'bloque' | 'succes';
 
                 @if (adequation.conseils.length) {
                   <div class="ai-advice-box">
-                    <p class="advice-heading">💡 Conseils personnalisés IA pour candidater :</p>
+                    <p class="advice-heading">💡 Conseils pour candidater :</p>
                     <ul>
                       @for (c of adequation.conseils; track c) {
                         <li>{{ c }}</li>
                       }
                     </ul>
                   </div>
+                }
+                @if (adequation.source === 'ia') {
+                  <p class="ai-disclaimer">Analyse générée par IA à partir de votre profil : elle peut se tromper, vérifiez les exigences de l'offre.</p>
                 }
               </div>
             }
@@ -241,6 +252,9 @@ type EtapeCandidature = 'formulaire' | 'qcm' | 'bloque' | 'succes';
     .ai-fit-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: .75rem; }
     .ai-title-wrap { display: flex; align-items: center; gap: .5rem; }
     .ai-badge { display: inline-block; padding: .2rem .5rem; border-radius: .35rem; font-size: .75rem; font-weight: 700; background: #e0e7ff; color: #4338ca; }
+    .ai-badge.rules { background: #e2e8f0; color: #334155; }
+    .ai-synthese { margin: 0 0 1rem; font-size: .9rem; color: #334155; }
+    .ai-disclaimer { margin: .75rem 0 0; font-size: .75rem; color: #64748b; }
     .ai-fit-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e293b; }
     .ai-score-pill { padding: .25rem .65rem; border-radius: 999px; font-size: .85rem; font-weight: 800; }
     .ai-score-pill.high { background: #dcfce7; color: #166534; }
@@ -366,6 +380,14 @@ export class EtudiantOffreDetailComponent implements OnInit {
       },
 
     });
+
+  }
+
+
+
+  justification(competence: string): string {
+
+    return this.adequation?.correspondances?.find((c) => c.competenceRequise === competence)?.justification ?? '';
 
   }
 

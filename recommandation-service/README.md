@@ -12,7 +12,7 @@ Microservice Python FastAPI qui calcule les offres de stage recommandées pour u
 ## 🛠️ Installation
 
 ### Prérequis
-- Python 3.8+
+- Python 3.10+ (exigé par anthropic, fastapi et pydantic ; testé avec Python 3.14)
 - pip
 
 ### Étapes
@@ -23,6 +23,16 @@ Microservice Python FastAPI qui calcule les offres de stage recommandées pour u
    ```
 
 2. **Créer un environnement virtuel**
+
+   Le dossier `venv/` est versionné : il pointe vers le Python de la personne qui l'a commité et
+   ne démarre pas forcément sur votre poste. Dans ce cas, créez un `.venv` local, ignoré par git,
+   au lieu de modifier `venv/` :
+   ```powershell
+   py -m venv .venv
+   .venv\Scripts\python -m pip install -r requirements.txt
+   .venv\Scripts\python -m uvicorn main:app --host 127.0.0.1 --port 8000
+   ```
+
    ```bash
    # Windows
    python -m venv venv
@@ -168,13 +178,51 @@ Similarité(Étudiant, Offre1) = 0.85 ← Élevée (termes communs)
 Similarité(Étudiant, Offre2) = 0.15 ← Faible (peu de termes communs)
 ```
 
+### Prétraitement retenu (après évaluation)
+
+- accents supprimés (`strip_accents="unicode"`) : « Developpement » = « Développement » ;
+- mots vides français retirés (« de », « et », « la »...) ;
+- motif de découpage qui garde `C`, `R`, `C++`, `C#`, `Node.js` (le motif par défaut de scikit-learn les supprime).
+
+`python evaluation.py` compare cette configuration à celle d'origine sur un petit jeu annoté.
+
+## 🤖 Analyse d'adéquation par IA (Claude)
+
+`POST /analyser-adequation` appelle Claude (API Anthropic) quand une clé est configurée :
+
+| Étape | Rôle |
+|---|---|
+| Prompt | profil (filière, niveau, compétences, souhait) + offre (secteur, sujet, compétences). Ni id ni nom envoyés |
+| Sortie | JSON contraint par schéma : verdict + justification par compétence requise, synthèse, 2 à 4 conseils |
+| Contrôle | compétences inventées ignorées, compétences oubliées évaluées par les règles |
+| Score | recalculé par le service : 65 % compétences couvertes + 35 % similarité TF-IDF |
+| Repli | sans clé, délai dépassé (7 s), erreur, refus ou JSON invalide → analyse par règles (`source: "regles"`) |
+| Cache | 256 analyses en mémoire, une même paire profil/offre n'est facturée qu'une fois |
+
+```bash
+# Windows (PowerShell)
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+# Optionnel
+$env:RECO_IA_MODELE = "claude-opus-5-5"   # ou claude-haiku-5-5, moins cher et plus rapide
+$env:RECO_IA_EFFORT = "low"               # low | medium | high
+$env:RECO_IA_TIMEOUT = "7"                # secondes, doit rester sous le délai de 10 s de Spring
+$env:RECO_IA_ACTIVE = "0"                 # forcer le mode règles
+```
+
+La réponse indique `source` (`ia` ou `regles`) et `modele`. Le frontend affiche « Analyse IA »
+uniquement si `source` vaut `ia`.
+
 ## 📝 Structure du projet
 
 ```
 recommandation-service/
 ├── main.py              # Point d'entrée FastAPI, endpoints
 ├── models.py            # Schémas Pydantic (DTOs)
-├── recommandation.py    # Logique TF-IDF + similarité cosinus
+├── recommandation.py    # TF-IDF + similarité cosinus, analyse d'adéquation par règles
+├── analyse_ia.py        # Analyse d'adéquation par Claude, garde-fous et repli
+├── evaluation.py        # Évaluation hors ligne (classement, correspondance des compétences)
+├── scenario_bout_en_bout.py  # Scénario réel Spring + service Python (actif puis arrêté)
+├── test_service.py      # Tests pytest (LLM simulé, aucun appel réel)
 ├── requirements.txt     # Dépendances Python
 └── README.md            # Cette documentation
 ```
@@ -197,10 +245,23 @@ Voir `RecommandationClientService.java` dans le backend pour les détails.
 2. Copier-coller le JSON de requête ci-dessus
 3. Vérifier la réponse
 
-### Avec Pytest (optionnel)
+### Avec Pytest
 ```bash
-pip install pytest httpx
-pytest tests/
+pytest test_service.py
+```
+
+### Évaluation
+```bash
+python evaluation.py         # sans appel payant
+python evaluation.py --ia    # ajoute le LLM (nécessite ANTHROPIC_API_KEY, ~25 appels)
+```
+
+### Bout en bout (Spring + service Python)
+```bash
+# Spring : mvnw spring-boot:run -Dspring-boot.run.profiles=local ; service Python sur 8000
+python scenario_bout_en_bout.py actif    # 13 vérifications
+# arrêter le service Python, puis :
+python scenario_bout_en_bout.py arrete   # 3 vérifications du repli côté Spring
 ```
 
 ## 🚨 Troubleshooting

@@ -25,6 +25,23 @@ export interface RecommandationAffichage extends Recommandation {
 }
 
 /**
+ * Verdict pour une compétence requise par l'offre, avec sa justification.
+ */
+export interface CorrespondanceCompetence {
+  competenceRequise: string;
+  acquise: boolean;
+  justification: string;
+}
+
+/**
+ * Origine de l'analyse :
+ * - ia : rédigée par un LLM (Claude), modèle indiqué dans `modele`
+ * - regles : calcul par règles dans le service Python (LLM indisponible ou désactivé)
+ * - regles-spring : service Python injoignable, calcul local par le backend
+ */
+export type SourceAdequation = 'ia' | 'regles' | 'regles-spring';
+
+/**
  * Analyse d'adéquation et d'écart de compétences (Skill Gap) pour une offre.
  */
 export interface AdequationAnalyse {
@@ -34,5 +51,9 @@ export interface AdequationAnalyse {
   competencesAcquises: string[];
   competencesManquantes: string[];
   conseils: string[];
+  correspondances?: CorrespondanceCompetence[];
+  synthese?: string | null;
+  source?: SourceAdequation;
+  modele?: string | null;
 }
 

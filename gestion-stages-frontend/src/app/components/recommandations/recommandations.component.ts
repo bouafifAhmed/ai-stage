@@ -50,6 +50,7 @@ export class RecommandationsComponent implements OnInit, OnDestroy {
   isLoading = true;
   hasError = false;
   errorMessage = '';
+  serviceIndisponible = false;
 
   // Pour la destruction du composant
   private destroy$ = new Subject<void>();
@@ -90,6 +91,7 @@ export class RecommandationsComponent implements OnInit, OnDestroy {
   private chargerRecommandations(): void {
     this.isLoading = true;
     this.hasError = false;
+    this.serviceIndisponible = false;
 
     this.recommandationService.obtenirRecommandationsAffichage()
       .pipe(takeUntil(this.destroy$))
@@ -98,15 +100,29 @@ export class RecommandationsComponent implements OnInit, OnDestroy {
           this.recommandations = recommandations;
           this.isLoading = false;
           console.log(`${recommandations.length} recommandations chargées`);
+          if (recommandations.length === 0) {
+            this.verifierMoteur();
+          }
         },
         error: (error) => {
           console.error('Erreur lors du chargement des recommandations :', error);
           this.isLoading = false;
           this.hasError = true;
-          this.errorMessage = 'Impossible de charger les recommandations';
-          // Dégradation gracieuse : ne pas bloquer l'utilisateur
+          this.errorMessage = error?.status === 0
+            ? 'Serveur injoignable : impossible de charger les recommandations'
+            : 'Impossible de charger les recommandations';
         }
       });
+  }
+
+  /**
+   * Une liste vide peut venir d'un moteur Python arrêté (Spring renvoie alors []) :
+   * on le vérifie pour afficher le bon message au lieu de « aucune recommandation ».
+   */
+  private verifierMoteur(): void {
+    this.recommandationService.healthCheck()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((disponible) => this.serviceIndisponible = !disponible);
   }
 
   /**

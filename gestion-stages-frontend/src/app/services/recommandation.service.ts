@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
@@ -28,7 +28,9 @@ export class RecommandationService {
    * - 403 Forbidden : Utilisateur n'a pas le rôle ETUDIANT
    * - 404 Not Found : Étudiant non trouvé
    * - 500 Internal Server Error : Erreur serveur
-   * - Timeout ou erreur réseau : Retourner une liste vide (fonctionnalité optionnelle)
+   * - Timeout ou erreur réseau
+   * Les erreurs sont journalisées puis propagées : le composant affiche la bannière d'erreur
+   * avec le bouton Réessayer. (Si seul le service Python est arrêté, Spring renvoie 200 et [].)
    *
    * @returns Observable<Recommandation[]> : Liste des offres recommandées
    *
@@ -43,18 +45,7 @@ export class RecommandationService {
     return this.http.get<Recommandation[]>(this.apiUrl).pipe(
       catchError((error: HttpErrorResponse) => {
         console.error('Erreur lors de la récupération des recommandations :', error);
-
-        // Dégradation gracieuse : retourner une liste vide
-        // (les recommandations sont une fonctionnalité additive, pas critique)
-        if (error.status === 401 || error.status === 403) {
-          console.warn('Authentification échouée ou permissions insuffisantes');
-        } else if (error.status === 404) {
-          console.warn('Ressource non trouvée');
-        } else if (error.status === 0) {
-          console.warn('Impossible de se connecter au serveur');
-        }
-
-        return of([]);
+        return throwError(() => error);
       })
     );
   }

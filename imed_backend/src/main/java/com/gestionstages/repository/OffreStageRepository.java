@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.List;
 import java.util.Optional;
 
 public interface OffreStageRepository extends JpaRepository<OffreStage, Long> {
@@ -20,5 +21,6 @@ public interface OffreStageRepository extends JpaRepository<OffreStage, Long> {
             @Param("entrepriseId") Long entrepriseId
     );
     Page<OffreStage> findAllByStatut(OffreStage.StatutOffre statut, Pageable pageable);
+    List<OffreStage> findAllByStatut(OffreStage.StatutOffre statut);
     Optional<OffreStage> findByIdAndStatut(Long id, OffreStage.StatutOffre statut);
 }
