@@ -70,6 +70,10 @@ public class FileStorageService {
         }
         String clean = relativePath.replace("/uploads/journal/", "").replace("\\", "/");
         Path filePath = this.fileStorageLocation.resolve(clean).normalize();
+        // Le chemin vient d'une donnée enregistrée par le client : il ne doit pas sortir du dossier du journal.
+        if (!filePath.startsWith(this.fileStorageLocation)) {
+            throw new IllegalArgumentException("Chemin de fichier invalide");
+        }
         if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
             return new org.springframework.core.io.FileSystemResource(filePath.toFile());
         } else {

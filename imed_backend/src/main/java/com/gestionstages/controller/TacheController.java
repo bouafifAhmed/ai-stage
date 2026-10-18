@@ -184,6 +184,10 @@ public class TacheController {
 
         Tache tache = tacheRepository.findById(tacheId)
                 .orElseThrow(() -> new IllegalArgumentException("Tâche introuvable"));
+        // L'accès vient d'être vérifié pour stageId : la tâche doit appartenir à ce même stage.
+        if (tache.getStage() == null || !stageId.equals(tache.getStage().getId())) {
+            return ResponseEntity.notFound().build();
+        }
 
         if (tache.getPieceJointe() == null || tache.getPieceJointe().isBlank()) {
             return ResponseEntity.notFound().build();
@@ -223,6 +227,8 @@ public class TacheController {
         }
         try {
             String role = currentUser.getRole() != null ? currentUser.getRole().name() : "";
+            // Même contrôle d'accès que la liste des tâches : lève SecurityException si le stage n'est pas le sien.
+            tacheService.listerTachesParStage(stageId, currentUser.getId(), role);
 
             // Use optimized query with JOIN FETCH to avoid LazyInitializationException
             Candidature stage = stageRepository.findByIdWithDetails(stageId)

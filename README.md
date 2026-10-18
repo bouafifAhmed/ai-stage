@@ -370,6 +370,12 @@ UtilisateurTest : autorité ROLE_ + enum.
 AdminEntrepriseSecurityTest et AdminEtudiantSecurityTest : CHEF_DEPT_STAGE reçoit 403.
 TacheControllerSecurityTest : anonyme 401, étudiant autorisé sur le journal.
 RecommandationControllerSecurityTest : anonyme 401 sur les trois endpoints, entreprise 403, étudiant 200 sur /health.
+ReclamationServiceTest, StageSuiviServiceTest, EtudiantStageServiceTest, EntrepriseOffresServiceTest,
+EntrepriseValidationServiceTest, AuthInscriptionEntrepriseTest, AdminEtudiantRechercheTest, QcmAdmissibiliteTest,
+TacheAssigneeLectureTest, StageRapportPdfServiceTest, FileStorageServiceTest (dont la lecture hors du dossier refusée).
+JwtSecurityTest (jeton, filtre, compte désactivé), GlobalExceptionHandlerTest, ReclamationSchedulerTest.
+ReclamationControllerTest, TacheControllerTest (pièce jointe et PDF d'un autre stage refusés), ControllersReponsesTest,
+RoleAccessSecurityTest (401 anonyme, 403 mauvais rôle, 400 validation sur chaque espace).
 ImedBackendApplicationTests : le contexte de test charge.
 Frontend Karma, HttpClientTestingModule :
 app.component.spec.ts crée l’application.
@@ -381,9 +387,12 @@ candidatures, notifications lues.
 tache-assignee.service.spec.ts : liste filtrée, assignation, multipart, validation, refus avec stageId dans l’URL, blob.
 recommandation.service.spec.ts : pourcentage de score, erreurs propagées, health à false en cas d’erreur, adéquation ou null.
 recommandations.component.spec.ts : liste triée et filtre, bannière d’erreur, moteur arrêté, liste vide moteur actif.
-Lancer : mvnw test dans imed_backend (67 tests).
-Service Python : pytest test_service.py dans recommandation-service (23 tests, client Claude simulé).
-npx ng test --watch=false --browsers=ChromeHeadless dans gestion-stages-frontend (24 tests).
+admin-etudiant, qcm, reclamation, stage-suivi et tache.service.spec.ts ; guards.spec.ts ; auth.interceptor.spec.ts.
+composants.smoke.spec.ts : les 31 écrans se créent et s’affichent ; specs dédiées pour login (redirections,
+returnUrl externe ignoré), qcm-passage, calendrier-echeances et progression-bar.
+Lancer : mvnw test dans imed_backend (200 tests, environ 83 % des lignes couvertes avec JaCoCo).
+Service Python : pytest test_service.py dans recommandation-service (30 tests, client Claude simulé).
+npx ng test --watch=false --browsers=ChromeHeadless dans gestion-stages-frontend (103 tests).
 Bout en bout (Spring profil local + service Python lancés) : python scenario_bout_en_bout.py actif,
 puis arrêter le service Python et lancer python scenario_bout_en_bout.py arrete.
 Ne pas laisser Karma ouvert : le port 9876 n’est pas l’application.

@@ -257,3 +257,92 @@ def test_adequation_sans_identifiants_reste_en_mode_regles(faux_llm, erreur):
     assert premiere["source"] == seconde["source"] == "regles"
     assert analyse_ia.ia_disponible() is False
     assert len(messages.appels) == 1  # plus aucune tentative une fois l'absence de clé constatée
+
+
+# --- Chemins d'erreur de l'API et métriques d'évaluation ----------------------
+
+def test_recommander_sans_offre_renvoie_une_liste_vide():
+    payload = {"etudiant": {"id": 1, "filiere": "Info", "niveau": "L3", "competences": []}, "offres": []}
+
+    response = client.post("/recommander", json=payload)
+
+    assert response.status_code == 200
+    assert response.json() == {"recommandations": []}
+
+
+def test_recommander_renvoie_500_sans_planter_le_service(monkeypatch):
+    import main
+
+    def en_panne(*args, **kwargs):
+        raise RuntimeError("panne")
+
+    monkeypatch.setattr(main, "calculer_recommandations", en_panne)
+    payload = {
+        "etudiant": {"id": 1, "filiere": "Info", "niveau": "L3", "competences": ["Python"]},
+        "offres": [{"id": 1, "nomEntreprise": "A", "secteurActivite": "IT", "sujetOffre": "Python",
+                    "competencesRequises": []}],
+    }
+
+    response = client.post("/recommander", json=payload)
+
+    assert response.status_code == 500
+    assert client.get("/health").status_code == 200
+
+
+def test_une_exception_inattendue_de_l_ia_mene_aux_regles(monkeypatch):
+    import main
+
+    async def plantage(*args, **kwargs):
+        raise ValueError("bug inattendu")
+
+    monkeypatch.setattr(main, "analyser_adequation_ia", plantage)
+
+    data = client.post("/analyser-adequation", json=PAYLOAD_ADEQUATION).json()
+
+    assert data["source"] == "regles"
+
+
+def test_analyse_par_regles_en_erreur_renvoie_500(monkeypatch):
+    import main
+
+    async def pas_d_ia(*args, **kwargs):
+        return None
+
+    def en_panne(*args, **kwargs):
+        raise RuntimeError("panne")
+
+    monkeypatch.setattr(main, "analyser_adequation_ia", pas_d_ia)
+    monkeypatch.setattr(main, "analyser_adequation", en_panne)
+
+    assert client.post("/analyser-adequation", json=PAYLOAD_ADEQUATION).status_code == 500
+
+
+def test_le_ndcg_vaut_1_pour_un_classement_ideal_et_moins_sinon():
+    import evaluation
+
+    assert evaluation.ndcg([2, 1, 0, 0], 5) == pytest.approx(1.0)
+    assert evaluation.ndcg([0, 1, 2, 0], 5) < 1.0
+    assert evaluation.ndcg([0, 0, 0], 5) == 0.0
+
+
+def test_l_ancienne_comparaison_par_sous_chaine_confondait_java_et_javascript():
+    import evaluation
+
+    assert evaluation.ancienne_correspondance("Java", "JavaScript") is True
+    assert competences_correspondent("Java", "JavaScript") is False
+
+
+def test_les_metriques_d_evaluation_restent_celles_du_rapport():
+    import evaluation
+
+    origine = evaluation.evaluer_classement(evaluation.CONFIG_TFIDF_INITIALE)
+    retenue = evaluation.evaluer_classement(evaluation.CONFIG_TFIDF)
+    exactitude_origine, _ = evaluation.evaluer_paires(evaluation.ancienne_correspondance)
+    exactitude_retenue, erreurs = evaluation.evaluer_paires(competences_correspondent)
+
+    assert origine["Top-1"] == retenue["Top-1"] == 1.0
+    assert origine["Marge min"] == pytest.approx(0.0)
+    assert retenue["Marge min"] == pytest.approx(0.19)
+    assert exactitude_origine == pytest.approx(0.32)
+    assert exactitude_retenue == pytest.approx(0.80)
+    assert len(erreurs) == 5
