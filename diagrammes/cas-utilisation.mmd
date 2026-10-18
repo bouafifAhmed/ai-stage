@@ -1,0 +1,43 @@
+flowchart LR
+  etu((Etudiant))
+  ent((Entreprise))
+  adm((Super admin))
+  chef((Chef de departement))
+
+  etu --> login[Se connecter]
+  ent --> login
+  adm --> login
+  chef --> login
+
+  etu --> offres[Consulter les offres]
+  etu --> profil[Gerer le profil]
+  etu --> cv[Gerer le CV]
+  etu --> qcm[Passer le QCM]
+  etu --> postuler[Postuler]
+  etu --> mesCand[Voir ses candidatures]
+  etu --> reco[Voir les recommandations]
+  etu --> notif[Lire les notifications]
+  etu --> journal[Tenir le journal]
+  etu --> tachesEtu[Realiser les taches]
+  etu --> reclaEtu[Ouvrir une reclamation]
+  etu --> calendrier[Voir le calendrier]
+  etu --> clotureEtu[Signer la cloture]
+
+  ent --> gererOffres[Gerer les offres]
+  ent --> candEnt[Voir les candidatures]
+  ent --> decider[Accepter ou refuser]
+  ent --> assigner[Assigner une tache]
+  ent --> valider[Valider ou rejeter]
+  ent --> reclaEnt[Traiter les reclamations]
+  ent --> clotureEnt[Signer la cloture]
+
+  adm --> crudEnt[Gerer les entreprises]
+  adm --> validerEnt[Valider une entreprise]
+  adm --> crudEtu[Gerer les etudiants]
+
+  chef --> espaceAdmin[Acceder a l espace administration]
+
+  postuler --> offres
+  decider --> candEnt
+  assigner --> decider
+  reco --> profil

@@ -14,17 +14,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gestionstages.model.Entreprise;
-import com.gestionstages.model.OffreStage;
 import com.gestionstages.model.Role;
 import com.gestionstages.model.StatutValidation;
 import com.gestionstages.model.Utilisateur;
 import com.gestionstages.repository.EntrepriseRepository;
-import com.gestionstages.repository.OffreStageRepository;
 import com.gestionstages.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +34,6 @@ public class DataSeeder implements CommandLineRunner {
     private final OptionReponseRepository optionReponseRepository;
     private final UserRepository userRepository;
     private final EntrepriseRepository entrepriseRepository;
-    private final OffreStageRepository offreStageRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataSeeder(
@@ -47,7 +42,6 @@ public class DataSeeder implements CommandLineRunner {
             OptionReponseRepository optionReponseRepository,
             UserRepository userRepository,
             EntrepriseRepository entrepriseRepository,
-            OffreStageRepository offreStageRepository,
             PasswordEncoder passwordEncoder
     ) {
         this.qcmRepository = qcmRepository;
@@ -55,7 +49,6 @@ public class DataSeeder implements CommandLineRunner {
         this.optionReponseRepository = optionReponseRepository;
         this.userRepository = userRepository;
         this.entrepriseRepository = entrepriseRepository;
-        this.offreStageRepository = offreStageRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -86,7 +79,7 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
 
-        LOGGER.info("Initialisation des comptes de démonstration et des offres de stage...");
+        LOGGER.info("Initialisation des comptes de démonstration...");
 
         // 1. Admin
         if (!userRepository.existsByEmail("admin@demo.com")) {
@@ -134,65 +127,7 @@ public class DataSeeder implements CommandLineRunner {
         etudiant.setActif(true);
         userRepository.save(etudiant);
 
-        // 4. Offres de stage
-        OffreStage offre1 = new OffreStage();
-        offre1.setTitre("Stage Développeur Fullstack Java / Angular");
-        offre1.setDescription("Rejoignez notre équipe agile pour concevoir et développer des fonctionnalités complètes sur nos plateformes web et cloud microservices.");
-        offre1.setDomaine("Génie Logiciel");
-        offre1.setLocalisation("Paris / Télétravail partiel");
-        offre1.setMode(OffreStage.ModeTravail.HYBRIDE);
-        offre1.setTypeStage("PFE / Fin d'études");
-        offre1.setDureeMois(6);
-        offre1.setDateDebut(LocalDate.now().plusWeeks(2));
-        offre1.setDateFin(LocalDate.now().plusMonths(6));
-        offre1.setDateLimite(LocalDate.now().plusMonths(2));
-        offre1.setCompetences(new ArrayList<>(List.of("Java", "Spring Boot", "Angular", "PostgreSQL", "Docker")));
-        offre1.setNiveauRequis("Bac+5");
-        offre1.setNombrePlaces(3);
-        offre1.setRemuneration(BigDecimal.valueOf(1400.00));
-        offre1.setStatut(OffreStage.StatutOffre.PUBLIEE);
-        offre1.setEntreprise(techCorp);
-        offreStageRepository.save(offre1);
-
-        OffreStage offre2 = new OffreStage();
-        offre2.setTitre("Stage Ingénieur IA & NLP / Data Science");
-        offre2.setDescription("Intégrez notre lab IA pour développer des modèles de traitement automatique du langage naturel, de recommandation et de machine learning avec FastAPI.");
-        offre2.setDomaine("Intelligence Artificielle");
-        offre2.setLocalisation("Lyon / Distanciel");
-        offre2.setMode(OffreStage.ModeTravail.DISTANCIEL);
-        offre2.setTypeStage("Stage R&D");
-        offre2.setDureeMois(6);
-        offre2.setDateDebut(LocalDate.now().plusWeeks(3));
-        offre2.setDateFin(LocalDate.now().plusMonths(6));
-        offre2.setDateLimite(LocalDate.now().plusMonths(2));
-        offre2.setCompetences(new ArrayList<>(List.of("Python", "FastAPI", "Machine Learning", "NLP", "Scikit-Learn")));
-        offre2.setNiveauRequis("Bac+5");
-        offre2.setNombrePlaces(2);
-        offre2.setRemuneration(BigDecimal.valueOf(1500.00));
-        offre2.setStatut(OffreStage.StatutOffre.PUBLIEE);
-        offre2.setEntreprise(techCorp);
-        offreStageRepository.save(offre2);
-
-        OffreStage offre3 = new OffreStage();
-        offre3.setTitre("Stage Frontend UI/UX React & Next.js");
-        offre3.setDescription("Développement d'interfaces modernes, interactives et performantes pour notre produit SaaS.");
-        offre3.setDomaine("Web Frontend");
-        offre3.setLocalisation("Nantes");
-        offre3.setMode(OffreStage.ModeTravail.PRESENTIEL);
-        offre3.setTypeStage("Stage Découverte");
-        offre3.setDureeMois(4);
-        offre3.setDateDebut(LocalDate.now().plusWeeks(4));
-        offre3.setDateFin(LocalDate.now().plusMonths(5));
-        offre3.setDateLimite(LocalDate.now().plusMonths(2));
-        offre3.setCompetences(new ArrayList<>(List.of("React", "Next.js", "TailwindCSS", "TypeScript")));
-        offre3.setNiveauRequis("Bac+3");
-        offre3.setNombrePlaces(1);
-        offre3.setRemuneration(BigDecimal.valueOf(1100.00));
-        offre3.setStatut(OffreStage.StatutOffre.PUBLIEE);
-        offre3.setEntreprise(techCorp);
-        offreStageRepository.save(offre3);
-
-        LOGGER.info("Seeding terminé avec succès : 3 comptes de test et 3 offres de stage créées.");
+        LOGGER.info("Seeding terminé : comptes de démonstration créés, sans offre statique.");
     }
 
     private Qcm creerQcmEntretienSavoirEtre() {

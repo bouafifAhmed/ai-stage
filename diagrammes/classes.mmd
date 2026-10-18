@@ -1,0 +1,101 @@
+classDiagram
+  class Utilisateur {
+    +Long id
+    +String nom
+    +String prenom
+    +String email
+    +Role role
+    +boolean actif
+    +String filiere
+    +String niveauEtudes
+    +List competences
+  }
+  class Entreprise {
+    +String nom
+    +String emailContact
+    +TailleEntreprise taille
+    +StatutValidation statutValidation
+    +String motifRejet
+  }
+  class OffreStage {
+    +String titre
+    +String domaine
+    +ModeTravail mode
+    +LocalDate dateLimite
+    +Integer nombrePlaces
+    +StatutOffre statut
+    +List competences
+  }
+  class Candidature {
+    +StatutCandidature statut
+    +StatutStage statutStage
+    +String message
+    +String signatureEtudiantPath
+    +String signatureEncadrantPath
+    +LocalDateTime dateCloture
+  }
+  class Tache {
+    +LocalDate date
+    +String titre
+    +StatutApprobation statutApprobation
+    +String commentaireEncadrant
+  }
+  class TacheAssignee {
+    +String titre
+    +LocalDate dateEcheance
+    +StatutTacheAssignee statut
+  }
+  class NotificationEtudiant {
+    +TypeNotification type
+    +String message
+    +boolean lue
+  }
+  class Reclamation {
+    +TypeReclamation typeReclamation
+    +String objet
+    +StatutReclamation statut
+  }
+  class MessageReclamation {
+    +String contenu
+    +LocalDateTime dateEnvoi
+  }
+  class Qcm {
+    +String titre
+    +Integer noteMinimalePassage
+    +boolean actif
+  }
+  class Question {
+    +String enonce
+    +TypeQuestion type
+    +Integer points
+  }
+  class OptionReponse {
+    +String libelle
+    +boolean estCorrecte
+  }
+  class TentativeQcm {
+    +Integer scorePourcentage
+    +boolean reussi
+    +Integer numeroTentative
+  }
+
+  Entreprise "1" <-- "0..*" Utilisateur : compte
+  Entreprise "1" <-- "1..*" OffreStage
+  OffreStage "1" <-- "0..*" Candidature
+  Utilisateur "1" <-- "0..*" Candidature : etudiant
+  Utilisateur "0..1" <-- "0..*" Candidature : encadrant
+  Candidature "1" <-- "0..*" Tache : journal
+  Candidature "1" <-- "0..*" TacheAssignee
+  Utilisateur "1" <-- "0..*" TacheAssignee : encadrant
+  Utilisateur "1" <-- "0..*" NotificationEtudiant
+  Candidature "1" <-- "1..*" NotificationEtudiant
+  TacheAssignee "0..1" <-- "0..1" NotificationEtudiant
+  Candidature "1" <-- "0..*" Reclamation
+  Utilisateur "1" <-- "0..*" Reclamation : auteur
+  Utilisateur "0..1" <-- "0..*" Reclamation : traitePar
+  Reclamation "1" <-- "1..*" MessageReclamation
+  Utilisateur "1" <-- "0..*" MessageReclamation : auteur
+  Qcm "1" <-- "1..*" Question
+  Question "1" <-- "2..*" OptionReponse
+  Qcm "1" <-- "0..*" TentativeQcm
+  Utilisateur "1" <-- "0..*" TentativeQcm
