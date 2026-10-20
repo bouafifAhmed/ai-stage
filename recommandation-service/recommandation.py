@@ -159,33 +159,18 @@ def calculer_recommandations(
     offres: List[OffreEntrepriseDTO],
     top_n: Optional[int] = 5,
     config_tfidf: Optional[Dict] = None,
+    combiner_score: Optional[bool] = None,
 ) -> List[RecommandationItemDTO]:
     """
-    Calcule la similarité entre un étudiant et un ensemble d'offres.
+    Calcule la similarité et la pertinence entre un étudiant et un ensemble d'offres.
 
     Étapes :
     1. Construire le texte de l'étudiant et celui de chaque offre
     2. Vectoriser le corpus [étudiant, offre_1, ..., offre_n] avec TF-IDF
     3. Calculer la similarité cosinus entre le vecteur étudiant et chaque vecteur offre
-    4. Trier par score décroissant et retourner le top N (toutes les offres si top_n=None)
-
-    TF-IDF :
-    - TF (Term Frequency) : fréquence d'un terme dans un document
-    - IDF (Inverse Document Frequency) : log((1 + n) / (1 + df)) + 1, pénalise les termes
-      présents dans beaucoup d'offres (« stage », « développement »...)
-
-    Similarité cosinus :
-    - cos(u, v) = u·v / (|u| |v|), entre 0 et 1 ici (poids TF-IDF positifs)
-    - Indépendante de la longueur des textes
-
-    Args:
-        etudiant: Profil étudiant
-        offres: Liste de toutes les offres disponibles
-        top_n: Nombre de recommandations à retourner (par défaut 5)
-        config_tfidf: Paramètres du TfidfVectorizer (CONFIG_TFIDF par défaut)
-
-    Returns:
-        List[RecommandationItemDTO]: Offres recommandées triées par score décroissant
+    4. Combiner la similarité textuelle avec la couverture des compétences requises (65% compétences, 35% TF-IDF)
+       pour que le score de la liste soit cohérent à 100% avec l'analyse d'adéquation détaillée
+    5. Trier par score décroissant et retourner le top N (toutes les offres si top_n=None)
     """
     if not offres:
         return []
@@ -212,23 +197,38 @@ def calculer_recommandations(
         return scores_nuls()
 
     # Ligne 0 = étudiant, lignes 1..n = offres
-    scores = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:])[0]
+    scores_cosinus = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:])[0]
 
-    classement = sorted(range(len(offres)), key=lambda i: scores[i], reverse=True)
+    # Par défaut, combiner le score avec les compétences sauf si une config_tfidf spécifique est testée
+    do_combine = combiner_score if combiner_score is not None else (config_tfidf is None)
+
+    scores_finaux = []
+    for i, offre in enumerate(offres):
+        sim_texte = float(scores_cosinus[i])
+        if do_combine:
+            correspondances = correspondances_par_regles(etudiant, offre)
+            nb_acquises = sum(1 for c in correspondances if c.acquise)
+            nb_requises = len(correspondances)
+            score_final = score_combine(nb_acquises, nb_requises, sim_texte)
+        else:
+            score_final = sim_texte
+        scores_finaux.append(score_final)
+
+    classement = sorted(range(len(offres)), key=lambda i: scores_finaux[i], reverse=True)
 
     return [
         RecommandationItemDTO(
             offreId=offres[i].id,
             nomEntreprise=offres[i].nomEntreprise,
-            score=round(float(scores[i]), 2),
+            score=round(float(scores_finaux[i]), 2),
         )
         for i in classement[:top_n]
     ]
 
 
 def score_textuel(etudiant: EtudiantProfilDTO, offre: OffreEntrepriseDTO) -> float:
-    """Similarité TF-IDF entre un étudiant et une seule offre."""
-    recs = calculer_recommandations(etudiant, [offre], top_n=1)
+    """Similarité TF-IDF entre un étudiant et une seule offre (purement textuelle)."""
+    recs = calculer_recommandations(etudiant, [offre], top_n=1, combiner_score=False)
     return recs[0].score if recs else 0.0
 
 
