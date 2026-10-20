@@ -10,36 +10,63 @@ import { EntrepriseStageService } from '../../services/entreprise-stage.service'
   selector: 'app-offre-form',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
+  styles: `
+    .editor { width: min(100%, 64rem); }
+    .offer-editor { padding: 2rem; }
+    .form-section { margin-top: 1.6rem; padding-top: 1.25rem; border-top: 1px solid #e2e8f0; }
+    .form-section h2 { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -.02em; }
+    .form-section > p { margin: .25rem 0 0; color: #64748b; font-size: .9rem; }
+    .form-section .form-grid { margin-top: 1rem; }
+    .loading-note { margin: 1.5rem 0 0; color: #64748b; }
+    input.ng-invalid.ng-touched, textarea.ng-invalid.ng-touched, select.ng-invalid.ng-touched { border-color: #fca5a5; background: #fff7f7; }
+    @media (max-width: 44rem) { .offer-editor { padding: 1.25rem; } }
+  `,
   template: `
     <main class="portal-page">
-      <section class="portal-shell narrow">
+      <section class="portal-shell editor">
         <a class="back-link" routerLink="/espace-entreprise">← Retour aux offres</a>
-        <div class="card">
+        <div class="card offer-editor">
           <p class="eyebrow">Espace entreprise</p>
           <h1>{{ offreId ? "Modifier l'offre" : "Créer une offre" }}</h1>
           <p>Renseignez les informations qui seront visibles par les étudiants.</p>
           @if (errorMessage) { <div class="alert">{{ errorMessage }}</div> }
           @if (loading) {
-            <p>Chargement…</p>
+            <p class="loading-note">Chargement…</p>
           } @else {
             <form [formGroup]="form" (ngSubmit)="submit()">
-              <div class="form-grid">
-                <label class="full">Titre *<input formControlName="titre" /></label>
-                <label class="full">Description *<textarea rows="7" formControlName="description"></textarea></label>
-                <label>Domaine *<input formControlName="domaine" placeholder="Informatique, finance…" /></label>
-                <label>Type de stage *<input formControlName="typeStage" placeholder="PFE, initiation…" /></label>
-                <label>Localisation *<input formControlName="localisation" /></label>
-                <label>Mode *<select formControlName="mode"><option value="PRESENTIEL">Présentiel</option><option value="HYBRIDE">Hybride</option><option value="DISTANCIEL">Distanciel</option></select></label>
-                <label>Durée (mois) *<input type="number" min="1" formControlName="dureeMois" /></label>
-                <label>Nombre de places *<input type="number" min="1" formControlName="nombrePlaces" /></label>
-                <label>Date de début<input type="date" formControlName="dateDebut" /></label>
-                <label>Date de fin<input type="date" formControlName="dateFin" /></label>
-                <label>Date limite *<input type="date" formControlName="dateLimite" /></label>
-                <label>Rémunération mensuelle<input type="number" min="0" formControlName="remuneration" /></label>
-                <label>Niveau requis<input formControlName="niveauRequis" placeholder="Bac+3, Master…" /></label>
-                <label>Statut<select formControlName="statut"><option value="BROUILLON">Brouillon</option><option value="PUBLIEE">Publiée</option><option value="CLOTUREE">Clôturée</option><option value="ARCHIVEE">Archivée</option></select></label>
-                <label class="full">Compétences requises *<input formControlName="competences" placeholder="Angular, Java, SQL" /><small>Séparez les compétences par des virgules.</small></label>
-              </div>
+              <section class="form-section">
+                <h2>Présentation</h2>
+                <p>Le titre et la description apparaissent en premier dans le catalogue.</p>
+                <div class="form-grid">
+                  <label class="full">Titre *<input formControlName="titre" /></label>
+                  <label class="full">Description *<textarea rows="7" formControlName="description"></textarea></label>
+                  <label>Domaine *<input formControlName="domaine" placeholder="Informatique, finance…" /></label>
+                  <label>Type de stage *<input formControlName="typeStage" placeholder="PFE, initiation…" /></label>
+                </div>
+              </section>
+              <section class="form-section">
+                <h2>Conditions</h2>
+                <p>Lieu, rythme et nombre de places proposés.</p>
+                <div class="form-grid">
+                  <label>Localisation *<input formControlName="localisation" /></label>
+                  <label>Mode *<select formControlName="mode"><option value="PRESENTIEL">Présentiel</option><option value="HYBRIDE">Hybride</option><option value="DISTANCIEL">Distanciel</option></select></label>
+                  <label>Durée (mois) *<input type="number" min="1" formControlName="dureeMois" /></label>
+                  <label>Nombre de places *<input type="number" min="1" formControlName="nombrePlaces" /></label>
+                  <label>Rémunération mensuelle<input type="number" min="0" formControlName="remuneration" /></label>
+                  <label>Niveau requis<input formControlName="niveauRequis" placeholder="Bac+3, Master…" /></label>
+                </div>
+              </section>
+              <section class="form-section">
+                <h2>Calendrier et publication</h2>
+                <p>Les dates et le statut décident si l'offre est visible.</p>
+                <div class="form-grid">
+                  <label>Date de début<input type="date" formControlName="dateDebut" /></label>
+                  <label>Date de fin<input type="date" formControlName="dateFin" /></label>
+                  <label>Date limite *<input type="date" formControlName="dateLimite" /></label>
+                  <label>Statut<select formControlName="statut"><option value="BROUILLON">Brouillon</option><option value="PUBLIEE">Publiée</option><option value="CLOTUREE">Clôturée</option><option value="ARCHIVEE">Archivée</option></select></label>
+                  <label class="full">Compétences requises *<input formControlName="competences" placeholder="Angular, Java, SQL" /><small>Séparez les compétences par des virgules.</small></label>
+                </div>
+              </section>
               @if (form.invalid && form.touched) { <p class="field-error">Veuillez compléter tous les champs obligatoires.</p> }
               <div class="form-actions">
                 <a class="button secondary" routerLink="/espace-entreprise">Annuler</a>
